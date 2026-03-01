@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenEn</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      width: 340px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px;
       color: #1a1a1a;
       background: #fff;
@@ -17,284 +17,350 @@
 
     /* ===== Header ===== */
     .header {
+      padding: 14px 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 14px 16px 10px;
+      gap: 10px;
       border-bottom: 1px solid #f0f0f0;
     }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+
     .logo {
-      font-size: 15px;
+      font-size: 18px;
       font-weight: 700;
       color: #2563eb;
-      letter-spacing: -0.3px;
-    }
-    .site-name {
-      font-size: 12px;
-      color: #888;
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      letter-spacing: -0.5px;
     }
 
-    /* ===== Status ===== */
-    .status-section {
-      padding: 12px 16px;
+    .site-name {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    /* ===== Big Action Button ===== */
+    .action-area {
+      padding: 16px 20px 12px;
+    }
+
+    .action-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       gap: 8px;
     }
-    .status-row {
+
+    .action-btn.is-on {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .action-btn.is-on:hover {
+      background: #1d4ed8;
+    }
+
+    .action-btn.is-off {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .action-btn.is-off:hover {
+      background: #e2e8f0;
+    }
+
+    .action-btn .icon {
+      font-size: 18px;
+    }
+
+    /* ===== Site toggle row ===== */
+    .site-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 10px 20px 14px;
+      border-bottom: 1px solid #f0f0f0;
     }
-    .status-label {
-      color: #666;
-      font-size: 12px;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 500;
-    }
-    .badge-active { background: #dbeafe; color: #1d4ed8; }
-    .badge-paused { background: #fef3c7; color: #92400e; }
-    .badge-disabled { background: #f3f4f6; color: #6b7280; }
-    .badge-scan { background: #ecfdf5; color: #065f46; }
-    .badge-deep { background: #ede9fe; color: #5b21b6; }
-    .badge-nokey { background: #fef2f2; color: #991b1b; }
 
-    /* ===== Controls ===== */
-    .controls {
-      padding: 0 16px 12px;
-      display: flex;
-      gap: 8px;
+    .site-row-label {
+      font-size: 13px;
+      color: #64748b;
     }
-    .btn {
+
+    .site-row-label .domain {
+      font-weight: 500;
+      color: #334155;
+    }
+
+    /* Small toggle */
+    .toggle-sm {
+      position: relative;
+      width: 40px;
+      height: 24px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .toggle-sm input { display: none; }
+
+    .toggle-sm .t-track {
+      position: absolute;
+      inset: 0;
+      background: #e2e8f0;
+      border-radius: 12px;
+      transition: background 0.25s ease;
+    }
+
+    .toggle-sm input:checked + .t-track {
+      background: #2563eb;
+    }
+
+    .toggle-sm .t-thumb {
+      position: absolute;
+      top: 2.5px;
+      left: 2.5px;
+      width: 19px;
+      height: 19px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform 0.25s ease;
+      pointer-events: none;
+    }
+
+    .toggle-sm input:checked ~ .t-thumb {
+      transform: translateX(16px);
+    }
+
+    /* ===== Content ===== */
+    .content {
+      padding: 0 20px 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    .content.disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .section {
+      padding-top: 16px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+
+    /* ===== Slider ===== */
+    .slider-row { margin-bottom: 20px; }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .slider-label {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .slider-track-container {
+      height: 32px;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #e2e8f0, #2563eb);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #2563eb;
+      box-shadow: 0 1px 4px rgba(37,99,235,0.3);
+      cursor: pointer;
+    }
+
+    .slider-hint {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* ===== Segmented Control ===== */
+    .seg-control {
+      display: flex;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 10px;
+    }
+
+    .seg-btn {
       flex: 1;
       padding: 7px 0;
-      border: 1px solid #e5e7eb;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
       border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .seg-btn.active {
       background: #fff;
-      font-size: 12px;
-      font-weight: 500;
-      color: #374151;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .btn:hover { background: #f9fafb; border-color: #d1d5db; }
-    .btn:active { background: #f3f4f6; }
-    .btn-danger { color: #dc2626; border-color: #fecaca; }
-    .btn-danger:hover { background: #fef2f2; }
-    .btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-    .btn-primary:hover { background: #1d4ed8; }
-
-    /* ===== Divider ===== */
-    .divider { border-top: 1px solid #f0f0f0; }
-
-    /* ===== LLM Config ===== */
-    .config-section {
-      padding: 0 16px 14px;
-    }
-    .config-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
-      cursor: pointer;
-      user-select: none;
-    }
-    .config-toggle-label {
-      font-size: 12px;
+      color: #1e293b;
       font-weight: 600;
-      color: #374151;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
-    .config-toggle-arrow {
-      font-size: 10px;
-      color: #9ca3af;
-      transition: transform 0.2s;
-    }
-    .config-toggle-arrow.open { transform: rotate(90deg); }
 
-    .config-form {
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-      padding-bottom: 4px;
+    .seg-btn:hover:not(.active) {
+      color: #334155;
     }
-    .config-form.visible { display: flex; }
 
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .form-label {
-      font-size: 11px;
-      color: #6b7280;
-      font-weight: 500;
-    }
-    .form-input, .form-select {
-      padding: 6px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 5px;
+    /* ===== Mode description ===== */
+    .mode-desc {
       font-size: 12px;
-      color: #1a1a1a;
-      background: #fff;
-      outline: none;
-      transition: border-color 0.15s;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      transition: all 0.2s ease;
     }
-    .form-input:focus, .form-select:focus {
-      border-color: #93c5fd;
-      box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
-    }
-    .form-input::placeholder { color: #c0c0c0; }
 
-    .openai-field { display: none; }
-    .openai-field.visible { display: flex; }
+    /* ===== Display Preview ===== */
+    .display-preview {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      min-height: 64px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #475569;
+      font-family: Georgia, 'Times New Roman', serif;
+      transition: all 0.2s ease;
+    }
 
-    .save-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .save-msg {
-      font-size: 11px;
-      color: #16a34a;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .save-msg.show { opacity: 1; }
+    .display-preview .line { display: block; }
+
+    /* Structure (详细) */
+    .display-preview.mode-structure .line-main { color: #1e293b; }
+    .display-preview.mode-structure .line-sub1 { padding-left: 1em; opacity: 0.65; }
+    .display-preview.mode-structure .line-sub2 { padding-left: 2em; opacity: 0.45; }
+
+    /* Lines (简洁) */
+    .display-preview.mode-lines .line { color: #475569; }
+
+    /* Light (轻微) */
+    .display-preview.mode-light .line { display: inline; }
+    .display-preview.mode-light .line-main { color: #1e293b; font-weight: 500; }
+    .display-preview.mode-light .line-sub { opacity: 0.35; }
+    .display-preview.mode-light .dot { color: #cbd5e1; margin: 0 3px; }
 
     /* ===== Footer ===== */
     .footer {
-      padding: 8px 16px;
+      padding: 12px 20px;
+      background: #f8fafc;
       border-top: 1px solid #f0f0f0;
       text-align: center;
     }
+
     .footer a {
-      font-size: 11px;
-      color: #9ca3af;
+      font-size: 12px;
+      color: #94a3b8;
       text-decoration: none;
     }
-    .footer a:hover { color: #6b7280; }
+
+    .footer a:hover { color: #2563eb; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-left">
-        <span class="logo">OpenEn</span>
-        <span class="site-name" id="site-name">—</span>
-      </div>
-    </div>
+  <!-- Header -->
+  <div class="header">
+    <span class="logo">OpenEn</span>
+    <span class="site-name" id="site-name">—</span>
+  </div>
 
-    <!-- Status -->
-    <div class="status-section">
-      <div class="status-row">
-        <span class="status-label">状态</span>
-        <span class="badge" id="status-badge">—</span>
-      </div>
-      <div class="status-row">
-        <span class="status-label">模式</span>
-        <span class="badge" id="mode-badge">—</span>
-      </div>
-    </div>
+  <!-- Big action button -->
+  <div class="action-area">
+    <button class="action-btn is-on" id="action-btn">
+      <span class="icon">◩</span>
+      <span id="action-text">显示原文</span>
+    </button>
+  </div>
 
-    <!-- Controls -->
-    <div class="controls">
-      <button class="btn" id="btn-toggle">在此站点禁用</button>
-      <button class="btn" id="btn-pause">暂停</button>
-    </div>
+  <!-- Site-level toggle -->
+  <div class="site-row">
+    <span class="site-row-label">总是拆分 <span class="domain" id="site-domain">—</span></span>
+    <label class="toggle-sm">
+      <input type="checkbox" id="site-toggle" checked>
+      <div class="t-track"></div>
+      <div class="t-thumb"></div>
+    </label>
+  </div>
 
-    <div class="divider"></div>
+  <!-- Settings content -->
+  <div class="content" id="content">
+    <div class="section">
+      <div class="section-title">拆分设置</div>
 
-    <!-- Chunk Settings -->
-    <div class="config-section">
-      <div class="config-toggle" id="chunk-toggle">
-        <span class="config-toggle-label">拆分设置</span>
-        <span class="config-toggle-arrow" id="chunk-arrow">▶</span>
+      <!-- Intensity slider -->
+      <div class="slider-row">
+        <div class="slider-labels">
+          <span class="slider-label">少拆</span>
+          <span class="slider-label" style="font-weight:600;color:#334155;">辅助力度</span>
+          <span class="slider-label">多拆</span>
+        </div>
+        <div class="slider-track-container">
+          <input type="range" id="assist-slider" min="1" max="5" value="3" step="1">
+        </div>
+        <div class="slider-hint" id="assist-hint">适中 — 复杂句自动拆，简单句不打扰</div>
       </div>
-      <div class="config-form" id="chunk-form">
-        <div class="form-group">
-          <span class="form-label">拆多细</span>
-          <select class="form-select" id="chunk-granularity">
-            <option value="fine">细 — 在介词、引语处也断行</option>
-            <option value="medium">中 — 在连词、从句处断行</option>
-            <option value="coarse">粗 — 只在逗号+连词处断行</option>
-          </select>
-          <span class="form-label" style="color:#9ca3af;font-size:10px;">改完即时生效，当前页面会重新拆分</span>
-        </div>
-        <div class="form-group">
-          <span class="form-label">显示方式</span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="intensity-slider" min="1" max="5" step="1" style="flex:1;" />
-            <span id="intensity-value" style="font-size:12px;color:#374151;min-width:16px;text-align:center;">5</span>
-          </div>
-          <span class="form-label" style="color:#9ca3af;font-size:10px;">5 = 分行+缩进 / 3 = 只分行 / 1 = 主干加粗</span>
-        </div>
-        <div class="form-group">
-          <span class="form-label">自动拆分门槛（细读模式）</span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="sensitivity-slider" min="1" max="5" step="1" style="flex:1;" />
-            <span id="sensitivity-value" style="font-size:12px;color:#374151;min-width:16px;text-align:center;">3</span>
-          </div>
-          <span class="form-label" style="color:#9ca3af;font-size:10px;">越低 = 越多句子自动拆分（扫读模式全自动，不受此项影响）</span>
-        </div>
-      </div>
-    </div>
 
-    <div class="divider"></div>
-
-    <!-- LLM Config -->
-    <div class="config-section">
-      <div class="config-toggle" id="config-toggle">
-        <span class="config-toggle-label">LLM 配置</span>
-        <span class="config-toggle-arrow" id="config-arrow">▶</span>
+      <!-- Display mode: segmented control + preview -->
+      <div style="margin-bottom:8px;">
+        <span class="slider-label" style="font-weight:600;color:#334155;">显示方式</span>
       </div>
-      <div class="config-form" id="config-form">
-        <div class="form-group">
-          <span class="form-label">API 格式</span>
-          <select class="form-select" id="llm-format">
-            <option value="gemini">Gemini</option>
-            <option value="openai-compatible">OpenAI 兼容（DeepSeek、Kimi 等）</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <span class="form-label">API Key</span>
-          <input type="password" class="form-input" id="llm-key" placeholder="输入你的 API Key" />
-        </div>
-        <div class="form-group openai-field" id="url-group">
-          <span class="form-label">Base URL</span>
-          <input type="text" class="form-input" id="llm-url" placeholder="https://api.deepseek.com/v1" />
-        </div>
-        <div class="form-group">
-          <span class="form-label">模型</span>
-          <input type="text" class="form-input" id="llm-model" placeholder="gemini-2.0-flash" />
-        </div>
-        <div class="save-row">
-          <span class="save-msg" id="save-msg">已保存</span>
-          <button class="btn btn-primary" id="btn-save" style="flex:none;padding:6px 16px;">保存</button>
-        </div>
-      </div>
-    </div>
 
-    <!-- Footer -->
-    <div class="footer">
-      <a id="link-options">打开设置页</a>
+      <div class="seg-control" id="seg-control">
+        <button class="seg-btn active" data-mode="structure">详细</button>
+        <button class="seg-btn" data-mode="lines">简洁</button>
+        <button class="seg-btn" data-mode="light">轻微</button>
+      </div>
+
+      <div class="mode-desc" id="mode-desc">分行 + 缩进，一眼看清主从关系</div>
+
+      <!-- Shared preview area -->
+      <div class="display-preview mode-structure" id="preview"></div>
     </div>
   </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <a href="#" id="link-options">更多设置 →</a>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

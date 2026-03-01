@@ -2,10 +2,10 @@
  * Popup — 弹出窗口
  *
  * 职责：
- * 1. 显示当前站点状态（活跃/暂停/禁用）
- * 2. 显示阅读模式（扫读/细读）
- * 3. 站点开关 + 暂停/恢复
- * 4. LLM 配置（API 格式、Key、Base URL、模型）
+ * 1. 大按钮：当前页面开关（显示原文 / 拆分显示）
+ * 2. 站点级 toggle：控制整个域名是否启用
+ * 3. 辅助力度滑杆（1-5），合并 chunkGranularity + sensitivity
+ * 4. 显示方式分段选择器（详细/简洁/轻微）+ 实时预览
  */
 
 import type { Message, OpenEnConfig } from "../shared/types.ts";
@@ -15,37 +15,70 @@ import type { Message, OpenEnConfig } from "../shared/types.ts";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const siteName = $("site-name");
-const statusBadge = $("status-badge");
-const modeBadge = $("mode-badge");
-const btnToggle = $<HTMLButtonElement>("btn-toggle");
-const btnPause = $<HTMLButtonElement>("btn-pause");
-const configToggle = $("config-toggle");
-const configArrow = $("config-arrow");
-const configForm = $("config-form");
-const llmFormat = $<HTMLSelectElement>("llm-format");
-const llmKey = $<HTMLInputElement>("llm-key");
-const llmUrl = $<HTMLInputElement>("llm-url");
-const llmModel = $<HTMLInputElement>("llm-model");
-const urlGroup = $("url-group");
-const btnSave = $<HTMLButtonElement>("btn-save");
-const saveMsg = $("save-msg");
-const chunkToggle = $("chunk-toggle");
-const chunkArrow = $("chunk-arrow");
-const chunkForm = $("chunk-form");
-const chunkGranularity = $<HTMLSelectElement>("chunk-granularity");
-const sensitivitySlider = $<HTMLInputElement>("sensitivity-slider");
-const sensitivityValue = $("sensitivity-value");
-const intensitySlider = $<HTMLInputElement>("intensity-slider");
-const intensityValue = $("intensity-value");
+const siteDomain = $("site-domain");
+const actionBtn = $<HTMLButtonElement>("action-btn");
+const actionText = $("action-text");
+const siteToggle = $<HTMLInputElement>("site-toggle");
+const content = $("content");
+const assistSlider = $<HTMLInputElement>("assist-slider");
+const assistHint = $("assist-hint");
+const segControl = $("seg-control");
+const modeDesc = $("mode-desc");
+const preview = $("preview");
 const linkOptions = $<HTMLAnchorElement>("link-options");
+
+// ========== 常量 ==========
+
+const ASSIST_HINTS: Record<number, string> = {
+  1: "最少 — 只拆最难的句子",
+  2: "较少 — 复杂句才拆",
+  3: "适中 — 复杂句自动拆，简单句不打扰",
+  4: "较多 — 大部分长句都会拆",
+  5: "最多 — 积极拆分，一目了然",
+};
+
+/** 辅助力度 → 底层配置映射 */
+const ASSIST_TO_CONFIG: Record<number, { chunkGranularity: "coarse" | "medium" | "fine"; sensitivity: number }> = {
+  1: { chunkGranularity: "coarse", sensitivity: 5 },
+  2: { chunkGranularity: "coarse", sensitivity: 4 },
+  3: { chunkGranularity: "medium", sensitivity: 3 },
+  4: { chunkGranularity: "fine", sensitivity: 2 },
+  5: { chunkGranularity: "fine", sensitivity: 1 },
+};
+
+/** 显示方式配置 */
+const DISPLAY_MODES: Record<string, { desc: string; intensity: number; html: string }> = {
+  structure: {
+    desc: "分行 + 缩进，一眼看清主从关系",
+    intensity: 5,
+    html: `
+      <span class="line line-main">She finished the project</span>
+      <span class="line line-sub1">that no one thought was possible,</span>
+      <span class="line line-sub2">before the deadline.</span>
+    `,
+  },
+  lines: {
+    desc: "只分行，不加额外标记",
+    intensity: 3,
+    html: `
+      <span class="line">She finished the project</span>
+      <span class="line">that no one thought was possible,</span>
+      <span class="line">before the deadline.</span>
+    `,
+  },
+  light: {
+    desc: "不分行，次要部分变淡",
+    intensity: 1,
+    html: `<span class="line line-main">She finished the project</span><span class="dot"> · </span><span class="line line-sub">that no one thought was possible,</span><span class="dot"> · </span><span class="line line-sub">before the deadline.</span>`,
+  },
+};
 
 // ========== 状态 ==========
 
 let currentTab: chrome.tabs.Tab | null = null;
 let currentHostname = "";
-let currentState: "active" | "paused" | "disabled" = "disabled";
-let configOpen = false;
-let chunkSettingsOpen = false;
+let isChunking = false; // 大按钮状态
+let siteEnabled = true; // 站点级开关
 
 // ========== 通信 ==========
 
@@ -53,104 +86,64 @@ function sendMessage(message: Message): Promise<unknown> {
   return chrome.runtime.sendMessage(message);
 }
 
-// ========== 模式判断（与 content script 同逻辑）==========
+// ========== 辅助力度：config → slider 值 ==========
 
-function detectMode(url: string): "scan" | "deep" {
-  try {
-    const hostname = new URL(url).hostname;
-    const pathname = new URL(url).pathname;
+function configToAssistLevel(config: OpenEnConfig): number {
+  const s = config.sensitivity;
+  if (s >= 5) return 1;
+  if (s >= 4) return 2;
+  if (s >= 3) return 3;
+  if (s >= 2) return 4;
+  return 5;
+}
 
-    if (hostname === "twitter.com" || hostname === "x.com") {
-      if (/\/\w+\/status\/\d+/.test(pathname)) return "deep";
-      return "scan";
-    }
-    if (hostname.includes("reddit.com")) {
-      if (pathname.includes("/comments/")) return "deep";
-      return "scan";
-    }
-    return "deep";
-  } catch {
-    return "deep";
-  }
+// ========== 显示方式：chunkIntensity → mode key ==========
+
+function intensityToMode(intensity: number): string {
+  if (intensity >= 4) return "structure";
+  if (intensity >= 2) return "lines";
+  return "light";
 }
 
 // ========== UI 更新 ==========
 
-function updateStatusUI(): void {
-  // 站点名
-  siteName.textContent = currentHostname || "—";
-
-  // 状态 badge
-  statusBadge.className = "badge";
-  switch (currentState) {
-    case "active":
-      statusBadge.textContent = "活跃";
-      statusBadge.classList.add("badge-active");
-      btnToggle.textContent = "在此站点禁用";
-      btnToggle.className = "btn btn-danger";
-      btnPause.textContent = "暂停";
-      btnPause.disabled = false;
-      break;
-    case "paused":
-      statusBadge.textContent = "已暂停";
-      statusBadge.classList.add("badge-paused");
-      btnToggle.textContent = "在此站点禁用";
-      btnToggle.className = "btn btn-danger";
-      btnPause.textContent = "恢复";
-      btnPause.disabled = false;
-      break;
-    case "disabled":
-      statusBadge.textContent = "已禁用";
-      statusBadge.classList.add("badge-disabled");
-      btnToggle.textContent = "在此站点启用";
-      btnToggle.className = "btn btn-primary";
-      btnPause.textContent = "暂停";
-      btnPause.disabled = true;
-      break;
+function updateActionButton(): void {
+  if (isChunking) {
+    actionBtn.className = "action-btn is-on";
+    actionText.textContent = "显示原文";
+  } else {
+    actionBtn.className = "action-btn is-off";
+    actionText.textContent = "拆分显示";
   }
 
-  // 模式 badge
-  if (currentTab?.url) {
-    const mode = detectMode(currentTab.url);
-    modeBadge.className = "badge";
-    if (mode === "scan") {
-      modeBadge.textContent = "扫读";
-      modeBadge.classList.add("badge-scan");
-    } else {
-      modeBadge.textContent = "细读";
-      modeBadge.classList.add("badge-deep");
-    }
+  // 站点禁用时，大按钮灰掉不可点
+  if (!siteEnabled) {
+    actionBtn.style.opacity = "0.4";
+    actionBtn.style.pointerEvents = "none";
   } else {
-    modeBadge.textContent = "—";
-    modeBadge.className = "badge";
+    actionBtn.style.opacity = "1";
+    actionBtn.style.pointerEvents = "auto";
   }
 }
 
-function updateConfigUI(config: OpenEnConfig): void {
-  llmFormat.value = config.llm.format;
-  llmKey.value = config.llm.apiKey;
-  llmUrl.value = config.llm.baseUrl;
-  llmModel.value = config.llm.model;
+function updateContentArea(): void {
+  // 站点禁用或拆分关闭时，设置区域变淡
+  content.classList.toggle("disabled", !siteEnabled || !isChunking);
+}
 
-  // 拆分设置
-  chunkGranularity.value = config.chunkGranularity || "fine";
-  sensitivitySlider.value = String(config.sensitivity);
-  sensitivityValue.textContent = String(config.sensitivity);
-  intensitySlider.value = String(config.chunkIntensity);
-  intensityValue.textContent = String(config.chunkIntensity);
+function setDisplayMode(modeKey: string): void {
+  const mode = DISPLAY_MODES[modeKey];
+  if (!mode) return;
 
-  // 显示/隐藏 Base URL 字段
-  urlGroup.classList.toggle("visible", config.llm.format === "openai-compatible");
+  // 更新分段按钮
+  segControl.querySelectorAll(".seg-btn").forEach((btn) => {
+    btn.classList.toggle("active", (btn as HTMLElement).dataset.mode === modeKey);
+  });
 
-  // 如果没有 API key，显示提示
-  if (!config.llm.apiKey) {
-    modeBadge.textContent = "未配置 Key";
-    modeBadge.className = "badge badge-nokey";
-    // 自动展开配置面板
-    configOpen = true;
-    configForm.classList.add("visible");
-    configArrow.classList.add("open");
-  }
+  // 更新描述和预览
+  modeDesc.textContent = mode.desc;
+  preview.className = "display-preview mode-" + modeKey;
+  preview.innerHTML = mode.html;
 }
 
 // ========== 初始化 ==========
@@ -168,127 +161,113 @@ async function init(): Promise<void> {
     }
   }
 
+  // 显示站点名
+  siteName.textContent = currentHostname || "—";
+  siteDomain.textContent = currentHostname || "—";
+
   // 获取当前状态
   if (currentTab?.id && currentHostname) {
-    const result = await sendMessage({
+    const result = (await sendMessage({
       type: "getTabState",
       tabId: currentTab.id,
       hostname: currentHostname,
-    }) as { state: "active" | "paused" | "disabled" };
-    currentState = result.state;
+    })) as { state: "active" | "paused" | "disabled" };
+
+    siteEnabled = result.state !== "disabled";
+    isChunking = result.state === "active";
   }
 
   // 获取配置
-  const config = await sendMessage({ type: "getConfig" }) as OpenEnConfig;
+  const config = (await sendMessage({ type: "getConfig" })) as OpenEnConfig;
 
-  updateStatusUI();
-  updateConfigUI(config);
+  // 设置站点 toggle
+  siteToggle.checked = siteEnabled;
+
+  // 设置辅助力度滑杆
+  const assistLevel = configToAssistLevel(config);
+  assistSlider.value = String(assistLevel);
+  assistHint.textContent = ASSIST_HINTS[assistLevel];
+
+  // 设置显示方式
+  const currentMode = intensityToMode(config.chunkIntensity);
+  setDisplayMode(currentMode);
+
+  // 更新 UI 状态
+  updateActionButton();
+  updateContentArea();
 
   // ===== 事件绑定 =====
 
-  // 站点开关
-  btnToggle.addEventListener("click", async () => {
+  // 大按钮：切换当前页面拆分
+  actionBtn.addEventListener("click", async () => {
+    if (!siteEnabled || !currentTab?.id) return;
+
+    isChunking = !isChunking;
+
+    if (isChunking) {
+      await sendMessage({ type: "resumeTab", tabId: currentTab.id });
+    } else {
+      await sendMessage({ type: "pauseTab", tabId: currentTab.id });
+    }
+
+    updateActionButton();
+    updateContentArea();
+  });
+
+  // 站点级 toggle
+  siteToggle.addEventListener("change", async () => {
     if (!currentHostname) return;
-    const result = await sendMessage({
+
+    const result = (await sendMessage({
       type: "toggleSite",
       hostname: currentHostname,
-    }) as { enabled: boolean };
-    currentState = result.enabled ? "active" : "disabled";
-    updateStatusUI();
-  });
+    })) as { enabled: boolean };
 
-  // 暂停/恢复
-  btnPause.addEventListener("click", async () => {
-    if (!currentTab?.id) return;
-    if (currentState === "paused") {
-      await sendMessage({ type: "resumeTab", tabId: currentTab.id });
-      currentState = "active";
-    } else if (currentState === "active") {
-      await sendMessage({ type: "pauseTab", tabId: currentTab.id });
-      currentState = "paused";
+    siteEnabled = result.enabled;
+
+    if (!siteEnabled) {
+      isChunking = false;
+    } else {
+      // 站点重新启用时，恢复为活跃
+      isChunking = true;
     }
-    updateStatusUI();
+
+    updateActionButton();
+    updateContentArea();
   });
 
-  // 拆分设置面板展开/收起
-  chunkToggle.addEventListener("click", () => {
-    chunkSettingsOpen = !chunkSettingsOpen;
-    chunkForm.classList.toggle("visible", chunkSettingsOpen);
-    chunkArrow.classList.toggle("open", chunkSettingsOpen);
+  // 辅助力度滑杆 — 拖动时更新提示
+  assistSlider.addEventListener("input", () => {
+    const level = Number(assistSlider.value);
+    assistHint.textContent = ASSIST_HINTS[level];
   });
 
-  // 颗粒度变更 → 即时保存
-  chunkGranularity.addEventListener("change", async () => {
+  // 辅助力度滑杆 — 松手时保存
+  assistSlider.addEventListener("change", async () => {
+    const level = Number(assistSlider.value);
+    const mapping = ASSIST_TO_CONFIG[level];
     await sendMessage({
       type: "updateConfig",
-      config: { chunkGranularity: chunkGranularity.value as "coarse" | "medium" | "fine" },
+      config: mapping,
     });
   });
 
-  // 灵敏度滑块
-  sensitivitySlider.addEventListener("input", () => {
-    sensitivityValue.textContent = sensitivitySlider.value;
-  });
-  sensitivitySlider.addEventListener("change", async () => {
+  // 显示方式分段选择器
+  segControl.addEventListener("click", async (e) => {
+    const btn = (e.target as HTMLElement).closest(".seg-btn") as HTMLElement | null;
+    if (!btn || btn.classList.contains("active")) return;
+
+    const modeKey = btn.dataset.mode!;
+    setDisplayMode(modeKey);
+
+    const mode = DISPLAY_MODES[modeKey];
     await sendMessage({
       type: "updateConfig",
-      config: { sensitivity: Number(sensitivitySlider.value) },
+      config: { chunkIntensity: mode.intensity },
     });
   });
 
-  // 渲染力度滑块
-  intensitySlider.addEventListener("input", () => {
-    intensityValue.textContent = intensitySlider.value;
-  });
-  intensitySlider.addEventListener("change", async () => {
-    await sendMessage({
-      type: "updateConfig",
-      config: { chunkIntensity: Number(intensitySlider.value) },
-    });
-  });
-
-  // LLM 配置面板展开/收起
-  configToggle.addEventListener("click", () => {
-    configOpen = !configOpen;
-    configForm.classList.toggle("visible", configOpen);
-    configArrow.classList.toggle("open", configOpen);
-  });
-
-  // API 格式切换 → 显示/隐藏 Base URL
-  llmFormat.addEventListener("change", () => {
-    urlGroup.classList.toggle("visible", llmFormat.value === "openai-compatible");
-    // 切换格式时更新默认模型名
-    if (llmFormat.value === "gemini" && !llmModel.value) {
-      llmModel.value = "gemini-2.0-flash";
-    }
-  });
-
-  // 保存配置
-  btnSave.addEventListener("click", async () => {
-    const newConfig: Partial<OpenEnConfig> = {
-      llm: {
-        format: llmFormat.value as "gemini" | "openai-compatible",
-        apiKey: llmKey.value.trim(),
-        baseUrl: llmUrl.value.trim(),
-        model: llmModel.value.trim(),
-      },
-    };
-    await sendMessage({ type: "updateConfig", config: newConfig });
-
-    // 显示保存成功
-    saveMsg.classList.add("show");
-    setTimeout(() => saveMsg.classList.remove("show"), 2000);
-
-    // 如果之前没有 key，现在有了，更新模式显示
-    if (newConfig.llm?.apiKey && currentTab?.url) {
-      const mode = detectMode(currentTab.url);
-      modeBadge.className = "badge";
-      modeBadge.textContent = mode === "scan" ? "扫读" : "细读";
-      modeBadge.classList.add(mode === "scan" ? "badge-scan" : "badge-deep");
-    }
-  });
-
-  // 打开设置页
+  // 更多设置 → Options 页
   linkOptions.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
