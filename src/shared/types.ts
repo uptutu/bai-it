@@ -76,3 +76,138 @@ export interface CacheEntry {
 }
 
 export const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 天
+
+// ========== IndexedDB 数据层（9 张表） ==========
+
+/** 生词状态 */
+export type VocabStatus = "new" | "learning" | "mastered";
+
+/** vocab — 生词表 */
+export interface VocabRecord {
+  id: string; // UUID
+  word: string;
+  status: VocabStatus;
+  phonetic?: string;
+  definition?: string; // 通用释义（离线词典）
+  industry_definition?: string; // 行业释义
+  encounter_count: number; // 遭遇次数
+  first_seen_at: number;
+  mastered_at?: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** vocab_contexts — 生词出处（每次遭遇记一条） */
+export interface VocabContextRecord {
+  id: string; // UUID
+  vocab_id: string;
+  sentence: string; // 出现的原句
+  context_definition: string; // 语境释义
+  source_url: string;
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** 句式类型 key（与 PRD 对齐） */
+export type PatternKey =
+  | "insertion"
+  | "background_first"
+  | "nested"
+  | "long_list"
+  | "inverted"
+  | "long_subject"
+  | "omission"
+  | "contrast"
+  | "condition"
+  | "long_modifier"
+  | "other";
+
+/** patterns — 句式类型 */
+export interface PatternRecord {
+  id: string; // UUID
+  key: PatternKey;
+  count: number; // 遇到次数
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** pattern_examples — 句式实例 */
+export interface PatternExampleRecord {
+  id: string; // UUID
+  pattern_id: string;
+  sentence: string;
+  chunked: string;
+  explanation?: string;
+  source_url?: string;
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** learning_records — 阅读记录（只记 LLM 处理过的复杂句子） */
+export interface LearningRecord {
+  id: string; // UUID
+  sentence: string;
+  chunked: string;
+  sentence_analysis?: string; // 句式讲解
+  expression_tips?: string; // 学会表达
+  pattern_key?: PatternKey;
+  new_words: { word: string; definition: string }[];
+  source_url?: string;
+  llm_provider?: string;
+  tokens_used?: number;
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** settings — 键值对设置（学习系统用） */
+export interface SettingsRecord {
+  key: string; // 主键
+  value: unknown;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** weekly_reports — 周报缓存 */
+export interface WeeklyReportRecord {
+  id: string; // UUID
+  week_start: string; // ISO date，如 "2026-02-23"
+  content: string; // LLM 生成的周报文本
+  stats: {
+    total_sentences: number;
+    total_new_words: number;
+    pattern_distribution: Record<string, number>;
+    top_words: { word: string; count: number }[];
+  };
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** review_items — 间隔重复队列（SM-2 算法） */
+export interface ReviewItemRecord {
+  id: string; // UUID
+  type: "sentence" | "word";
+  reference_id: string; // 关联 learning_records.id 或 vocab.id
+  ease_factor: number; // SM-2 难度系数，默认 2.5
+  interval: number; // 当前间隔（天）
+  repetitions: number; // 连续正确次数
+  next_review_at: number; // 下次复习时间戳
+  last_reviewed_at?: number;
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
+
+/** wallpaper_records — 壁纸生成记录 */
+export interface WallpaperRecord {
+  id: string; // UUID
+  sentence: string;
+  image_data?: string; // base64 或 blob URL
+  style?: string;
+  created_at: number;
+  updated_at: number;
+  is_dirty: boolean;
+}
