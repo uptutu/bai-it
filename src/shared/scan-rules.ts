@@ -181,33 +181,33 @@ function splitAtBoundaries(sentence: string, granularity: Granularity = "medium"
       // 3. 强从属连词（不需要逗号）
       else if (STRONG_SUBORDINATE.has(clean)) {
         shouldSplit = true;
-        nextLevel = 1;
+        nextLevel = Math.min(currentLevel + 1, 5);
       }
       // 4. "even" + 从属连词 → 在 "even" 处拆分
       else if (clean === "even" && i + 1 < words.length) {
         const nextClean = cleanWord(words[i + 1]);
         if (WEAK_SUBORDINATE.has(nextClean) || STRONG_SUBORDINATE.has(nextClean)) {
           shouldSplit = true;
-          nextLevel = 1;
+          nextLevel = Math.min(currentLevel + 1, 5);
         }
       }
       // 5. 弱从属连词（需要逗号）
       else if (WEAK_SUBORDINATE.has(clean) && prevHasPunct) {
         shouldSplit = true;
-        nextLevel = 1;
+        nextLevel = Math.min(currentLevel + 1, 5);
       }
       // 6. 关系代词（逗号后）
       else if (RELATIVE.has(clean) && prevHasPunct) {
         shouldSplit = true;
-        nextLevel = 1;
+        nextLevel = Math.min(currentLevel + 1, 5);
       }
       // 7. 转折/过渡词
       else if (TRANSITION.has(clean) && (prevHasPunct || i === 0)) {
         shouldSplit = true;
         nextLevel = 0;
       }
-      // 8. 从属子句结束：当前在 level 1，遇到逗号后的非标记词 → 回到主句
-      else if (currentLevel === 1 && prevHasPunct &&
+      // 8. 从属子句结束：当前在从句中，遇到逗号后的非标记词 → 回到主句
+      else if (currentLevel >= 1 && prevHasPunct &&
         !COORDINATE.has(clean) && !STRONG_SUBORDINATE.has(clean) &&
         !WEAK_SUBORDINATE.has(clean) && !RELATIVE.has(clean) &&
         !TRANSITION.has(clean)) {
@@ -228,12 +228,12 @@ function splitAtBoundaries(sentence: string, granularity: Granularity = "medium"
         // 弱从属连词
         else if (WEAK_SUBORDINATE.has(clean) && remaining >= minAfterSub) {
           shouldSplit = true;
-          nextLevel = 1;
+          nextLevel = Math.min(currentLevel + 1, 5);
         }
         // 关系代词（排除 that）
         else if (RELATIVE_RELAXED.has(clean) && remaining >= minAfterSub) {
           shouldSplit = true;
-          nextLevel = 1;
+          nextLevel = Math.min(currentLevel + 1, 5);
         }
       }
 
@@ -245,12 +245,12 @@ function splitAtBoundaries(sentence: string, granularity: Granularity = "medium"
         // 介词短语拆分（前 4+ 词，后 4+ 词）
         if (PREPOSITION_FINE.has(clean) && remaining >= 4) {
           shouldSplit = true;
-          nextLevel = 1;
+          nextLevel = Math.min(currentLevel + 1, 5);
         }
         // 疑问/关系副词引出的从句（how/why/what）
         else if (CLAUSE_STARTER_FINE.has(clean) && remaining >= 4) {
           shouldSplit = true;
-          nextLevel = 1;
+          nextLevel = Math.min(currentLevel + 1, 5);
         }
         // 引语边界：引号开头（前 3+ 词）
         else if (/^["'\u201C\u2018]/.test(word) && currentWords.length >= 3) {
