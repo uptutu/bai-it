@@ -409,7 +409,20 @@ function insertChunkedElement(
   chunkedEl: HTMLElement,
 ): void {
   // 1. 隐藏原始元素
-  (originalEl as HTMLElement).style.setProperty("display", "none", "important");
+  // Twitter 长推文：tweetText 有 Show More 兄弟按钮时，用塌缩（height:0）代替 display:none
+  // 这样 React 仍能测量 scrollHeight > 0，不会移除 Show More 按钮
+  const hasShowMore =
+    originalEl.matches('[data-testid="tweetText"]') &&
+    originalEl.parentElement?.querySelector('[data-testid="tweet-text-show-more-link"]');
+  if (hasShowMore) {
+    (originalEl as HTMLElement).style.setProperty("height", "0", "important");
+    (originalEl as HTMLElement).style.setProperty("overflow", "hidden", "important");
+    (originalEl as HTMLElement).style.setProperty("padding", "0", "important");
+    (originalEl as HTMLElement).style.setProperty("margin", "0", "important");
+    originalEl.classList.add("enlearn-collapsed");
+  } else {
+    (originalEl as HTMLElement).style.setProperty("display", "none", "important");
+  }
   originalEl.classList.add("enlearn-original-hidden");
   // 2. 插入分块作为兄弟
   originalEl.parentNode?.insertBefore(chunkedEl, originalEl.nextSibling);
@@ -463,7 +476,15 @@ function restoreProcessedElements(): void {
 
   // 恢复隐藏的原始元素（清除 inline style + class）
   document.querySelectorAll(".enlearn-original-hidden").forEach(el => {
-    (el as HTMLElement).style.removeProperty("display");
+    if (el.classList.contains("enlearn-collapsed")) {
+      (el as HTMLElement).style.removeProperty("height");
+      (el as HTMLElement).style.removeProperty("overflow");
+      (el as HTMLElement).style.removeProperty("padding");
+      (el as HTMLElement).style.removeProperty("margin");
+      el.classList.remove("enlearn-collapsed");
+    } else {
+      (el as HTMLElement).style.removeProperty("display");
+    }
     el.classList.remove("enlearn-original-hidden");
   });
 
@@ -807,16 +828,6 @@ function scanPage(): void {
     // 太短的文本不值得处理（短推文、标题等）
     if (text.split(/\s+/).length < 8) continue;
 
-    // Twitter "Show more"：跳过未展开的推文，保留按钮让用户自己点
-    // 原因：隐藏 tweetText 会让 React 重测量 scrollHeight，发现无溢出后删除按钮
-    // 用户点击展开后，MutationObserver 检测到新内容会自动触发 scanPage 处理全文
-    if (el.matches('[data-testid="tweetText"]')) {
-      const showMoreBtn = el.parentElement?.querySelector(
-        '[data-testid="tweet-text-show-more-link"]',
-      );
-      if (showMoreBtn) continue;
-    }
-
     // 统一扫读：按段落/句子本地拆分
     processedElements.add(el);
 
@@ -1070,7 +1081,15 @@ function restoreSingleElement(el: Element): void {
   }
 
   // 恢复原始元素显示
-  (el as HTMLElement).style.removeProperty("display");
+  if (el.classList.contains("enlearn-collapsed")) {
+    (el as HTMLElement).style.removeProperty("height");
+    (el as HTMLElement).style.removeProperty("overflow");
+    (el as HTMLElement).style.removeProperty("padding");
+    (el as HTMLElement).style.removeProperty("margin");
+    el.classList.remove("enlearn-collapsed");
+  } else {
+    (el as HTMLElement).style.removeProperty("display");
+  }
   el.classList.remove("enlearn-original-hidden");
 
   // 清理祖先上的截断覆盖
