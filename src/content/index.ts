@@ -346,10 +346,30 @@ function onStorageChanged(changes: { [key: string]: chrome.storage.StorageChange
 // ========== 文本提取工具 ==========
 
 /**
- * 从元素中提取段落列表，保留 <br> 产生的换行
+ * 递归提取元素文本，只在 <br> 处插入换行。
+ * 避免 innerText 把 <div> 包装层（如 Twitter @mention 的 <div>）当作段落分隔。
+ */
+function extractTextFromDOM(el: Node): string {
+  let result = "";
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if ((node as Element).tagName === "BR") {
+        result += "\n";
+      } else {
+        result += extractTextFromDOM(node);
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * 从元素中提取段落列表，保留 <br> 和文本中的换行
  */
 function extractParagraphs(el: Element): string[] {
-  const text = (el as HTMLElement).innerText || el.textContent || "";
+  const text = extractTextFromDOM(el);
   return text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
 }
 
