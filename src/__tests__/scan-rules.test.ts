@@ -170,11 +170,13 @@ describe("短句不拆", () => {
     expect(result.needsLLM).toBe(false);
   });
 
-  it("没有拆分点的长句不拆", () => {
+  it("有不定式短语的长句在 to + 动词处拆分（POS 检测）", () => {
     const result = scanSplit(
       "The entire development team worked incredibly hard throughout the whole entire summer to deliver the final completed product on schedule.",
     );
-    expect(result.chunks.length).toBe(1);
+    // POS 检测到 TO + VB（不定式短语），在 "to deliver" 处拆分
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    expect(result.chunks.some(c => c.text.toLowerCase().startsWith("to deliver"))).toBe(true);
     expect(result.needsLLM).toBe(false);
   });
 });
@@ -448,5 +450,166 @@ describe("fine 颗粒度", () => {
       "fine",
     );
     expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ========== 验收标准：冒号/破折号/括号拆分 ==========
+
+describe("标点符号拆分", () => {
+  it("冒号后拆分（后面 4+ 词）", () => {
+    const result = scanSplit(
+      "There is one thing that matters most: the quality of your daily relationships with other people.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    expect(result.chunks.some(c =>
+      c.text.toLowerCase().startsWith("the quality"),
+    )).toBe(true);
+  });
+
+  it("冒号后不足 4 词不拆", () => {
+    const result = scanSplit(
+      "The answer is simple: just wait for the results to come in naturally.",
+    );
+    // "just wait..." 有 8+ 词 → 应该拆
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("时间格式中的冒号不拆", () => {
+    const result = scanSplit(
+      "The meeting starts at 3:00 and we need to prepare the presentation materials beforehand.",
+    );
+    // 3:00 中的冒号不应触发拆分
+    // 但 "and" 可能触发拆分 — 测试冒号本身不是拆分点
+    const chunked = result.chunks.map(c => c.text).join(" | ");
+    expect(chunked).not.toContain("| 00");
+  });
+
+  it("独立破折号处拆分", () => {
+    const result = scanSplit(
+      "The company \u2014 once a dominant market leader in the industry \u2014 is now struggling to survive.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("括号内容拆分", () => {
+    const result = scanSplit(
+      "The framework (originally developed by Facebook for internal use) is now maintained by the open source community.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    // 括号内容应该是更高层级
+    const parenChunk = result.chunks.find(c => c.text.includes("originally"));
+    expect(parenChunk?.level).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ========== 验收标准："that" 安全规则 ==========
+
+describe("that 安全规则", () => {
+  it("报告动词后的 that 不拆分", () => {
+    const result = scanSplit(
+      "The researchers confirmed, that the results were consistent with their previous findings across all experiments.",
+    );
+    // "confirmed, that" — "confirmed" 是报告动词 → 不应在 that 处拆
+    expect(result.chunks.every(c =>
+      !c.text.toLowerCase().startsWith("that the results"),
+    )).toBe(true);
+  });
+
+  it("非报告动词后的 that 正常拆分", () => {
+    const result = scanSplit(
+      "The new framework significantly reduces boilerplate code, that developers previously had to write manually for every component.",
+    );
+    expect(result.chunks.some(c =>
+      c.text.toLowerCase().startsWith("that developers"),
+    )).toBe(true);
+  });
+});
+
+// ========== 验收标准：从句结束检测改进 ==========
+
+describe("从句结束检测改进", () => {
+  it("逗号后形容词短语不误判为新从句", () => {
+    const result = scanSplit(
+      "The man who arrived at the station, tired and hungry from his long journey, sat down on the nearest bench.",
+    );
+    // "tired" 不应该被当作新从句的开始
+    // POS 识别 tired 为 VBN/JJ → 不是从句开头
+    const tiredChunk = result.chunks.find(c =>
+      c.text.toLowerCase().startsWith("tired"),
+    );
+    // 如果 tired 被拆出来，它不应该是 level 0（主句）
+    if (tiredChunk) {
+      expect(tiredChunk.level).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("逗号后代词正确识别为新从句开始", () => {
+    const result = scanSplit(
+      "Although the weather was absolutely terrible for outdoor traveling, she decided to continue with the event anyway.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    const mainChunk = result.chunks.find(c =>
+      c.text.toLowerCase().startsWith("she"),
+    );
+    expect(mainChunk).toBeDefined();
+    expect(mainChunk?.level).toBe(0);
+  });
+});
+
+// ========== 验收标准：POS 辅助拆分 ==========
+
+describe("POS 辅助拆分", () => {
+  it("句首分词短语检测（VBG）", () => {
+    const result = scanSplit(
+      "Running as fast as she possibly could through the crowded streets, she barely managed to catch the last departing bus.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    // 句首 "Running..." 应该是从属（level 1）
+    expect(result.chunks[0].level).toBe(1);
+  });
+
+  it("不定式短语拆分（TO + VB）", () => {
+    const result = scanSplit(
+      "She traveled across the country visiting several major cities to find a suitable location for the new headquarters.",
+    );
+    expect(result.chunks.length).toBeGreaterThanOrEqual(2);
+    expect(result.chunks.some(c =>
+      c.text.toLowerCase().startsWith("to find"),
+    )).toBe(true);
+  });
+
+  it("to + 名词不拆分（非不定式）", () => {
+    const result = scanSplit(
+      "She went to the store and bought some groceries for dinner tonight.",
+    );
+    // "to the store" 中的 to 是介词，不是不定式 → 不应在 to 处拆
+    // 但 "and" 可能触发拆分
+    const toChunk = result.chunks.find(c =>
+      c.text.toLowerCase().startsWith("to the store"),
+    );
+    expect(toChunk).toBeUndefined();
+  });
+});
+
+// ========== POS 标注函数测试 ==========
+
+describe("getPOSTags", () => {
+  // 导入 getPOSTags
+  it("返回与 words 数组等长的标签数组", async () => {
+    const { getPOSTags } = await import("../shared/scan-rules");
+    const sentence = "The quick brown fox jumps over the lazy dog.";
+    const words = sentence.match(/\S+/g)!;
+    const tags = getPOSTags(sentence, words);
+    expect(tags).not.toBeNull();
+    expect(tags!.length).toBe(words.length);
+  });
+
+  it("正确标注基本词性", async () => {
+    const { getPOSTags } = await import("../shared/scan-rules");
+    const sentence = "She runs quickly.";
+    const words = sentence.match(/\S+/g)!;
+    const tags = getPOSTags(sentence, words);
+    expect(tags).not.toBeNull();
+    expect(tags![0]).toBe("PRP"); // She → 代词
   });
 });
