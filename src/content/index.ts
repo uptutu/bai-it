@@ -355,7 +355,10 @@ function extractTextFromDOM(el: Node): string {
     if (node.nodeType === Node.TEXT_NODE) {
       result += node.textContent;
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      if ((node as Element).tagName === "BR") {
+      const tag = (node as Element).tagName;
+      // 跳过 script/style 等不可见内容（含 <script type="application/json"> 数据岛）
+      if (SKIP_TAGS.has(tag)) continue;
+      if (tag === "BR") {
         result += "\n";
       } else {
         result += extractTextFromDOM(node);
@@ -844,11 +847,16 @@ function findTextLeafElements(): Element[] {
         hasBlockChild = true;
         break;
       }
+      // 自定义元素（如 react-app, turbo-frame）视为块级，含此类子元素的不是叶子
+      if (child.tagName.includes("-")) {
+        hasBlockChild = true;
+        break;
+      }
     }
     if (hasBlockChild) continue;
 
-    // 文本长度和英文检查
-    const text = el.textContent?.trim() ?? "";
+    // 文本长度和英文检查（用 extractTextFromDOM 剔除 script/style）
+    const text = extractTextFromDOM(el).trim();
     if (text.length < 10) continue;
     if (!isEnglish(text)) continue;
     if (text.split(/\s+/).length < 8) continue;
@@ -878,7 +886,8 @@ function scanPage(): void {
     // 跳过已经被隐藏的元素内部的后代
     if (el.closest(".enlearn-original-hidden")) continue;
 
-    const text = el.textContent?.trim() ?? "";
+    // 用 extractTextFromDOM 取干净文本（剔除 script/style 等不可见内容）
+    const text = extractTextFromDOM(el).trim();
     if (text.length < 10) continue;
     if (!isEnglish(text)) continue;
 
@@ -893,7 +902,7 @@ function scanPage(): void {
   // 必须用 clone 路径保留原始 class，否则兄弟插入会破坏布局
   const fallbackCandidates = findTextLeafElements();
   for (const el of fallbackCandidates) {
-    const text = el.textContent?.trim() ?? "";
+    const text = extractTextFromDOM(el).trim();
     processedElements.add(el);
     processElementWithLinks(el, text);
   }
