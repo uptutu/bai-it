@@ -624,7 +624,8 @@ function processElementWithLinks(el: Element, text: string): void {
     const sentences = splitIntoSentences(paraText);
     let sentenceOffset = paraStart;
 
-    for (const sentence of sentences) {
+    for (let si = 0; si < sentences.length; si++) {
+      const sentence = sentences[si];
       const trimmed = sentence.trim();
       if (!trimmed) continue;
 
@@ -635,18 +636,30 @@ function processElementWithLinks(el: Element, text: string): void {
         continue;
       }
 
+      // 非首句：在句子起始位置插入断点（句子边界换行）
+      if (si > 0 && sentStart > paraStart) {
+        breakpoints.push({ offset: sentStart, level: 0 });
+      }
+
       const scanResult = scanSplit(trimmed, config.scanThreshold, config.chunkGranularity);
       if (scanResult.chunks.length > 1) {
-        // 将 chunk 断点映射回 fullText 偏移
-        let chunkOffset = sentStart;
-        for (let ci = 1; ci < scanResult.chunks.length; ci++) {
-          // 前面所有 chunk 的文本长度 = 当前 chunk 的起始偏移
-          chunkOffset += scanResult.chunks[ci - 1].text.length;
-          // 跳过 chunk 之间的空格
-          while (chunkOffset < paraEnd && fullText[chunkOffset] === " ") {
-            chunkOffset++;
+        // 将 chunk 断点映射回 fullText 偏移（用词匹配，避免多空格导致偏移漂移）
+        let searchPos = sentStart;
+        for (let ci = 0; ci < scanResult.chunks.length; ci++) {
+          const chunkWords = scanResult.chunks[ci].text.split(/\s+/);
+          if (ci > 0) {
+            // 在 fullText 中定位当前 chunk 的首词
+            const firstWord = chunkWords[0];
+            const wordPos = fullText.indexOf(firstWord, searchPos);
+            if (wordPos >= 0) {
+              breakpoints.push({ offset: wordPos, level: scanResult.chunks[ci].level });
+            }
           }
-          breakpoints.push({ offset: chunkOffset, level: scanResult.chunks[ci].level });
+          // 推进 searchPos 到当前 chunk 最后一个词之后
+          for (const w of chunkWords) {
+            const idx = fullText.indexOf(w, searchPos);
+            if (idx >= 0) searchPos = idx + w.length;
+          }
         }
       }
 
