@@ -45,7 +45,7 @@
 
 ### 从 GitHub Release 安装
 
-1. 到 [Releases](https://github.com/CapeAga/bai-it/releases) 页面下载最新的 `bai-it-vX.X.X.zip`
+1. 到 [Releases](https://github.com/CapeAga/bai-it/releases) 页面下载最新的 `bai-it-vX.X.X.zip`（⚠️ 不要下载 "Source code"，那是源码，无法直接安装）
 2. **解压** zip 文件到一个文件夹
 3. 打开 Chrome，进入 `chrome://extensions/`
 4. 打开右上角「开发者模式」
