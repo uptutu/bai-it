@@ -97,17 +97,10 @@
 - IndexedDB 本地存储
 - Vitest 单元测试 + Puppeteer 浏览器测试
 
-## 参与贡献
+## 反馈
 
-欢迎提 Issue 和 PR。
-
-```bash
-# 开发
-npm install
-npm run build    # 构建到 dist/
-npm test         # 运行单元测试
-```
+欢迎通过 [Issue](https://github.com/CapeAga/bai-it/issues) 提建议和反馈 bug。本项目目前由个人维护，暂不接受外部 Pull Request。
 
 ## 许可证
 
-[MIT](./LICENSE)
+[BSL 1.1](./LICENSE) — 代码公开可见，但不允许将本软件或其衍生作品作为产品或服务进行复制、修改、分发。
