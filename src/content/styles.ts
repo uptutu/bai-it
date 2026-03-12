@@ -75,17 +75,17 @@ export const ENLEARN_STYLES = `
   display: none;
   background: #1a1a2e;
   color: #e2e8f0;
-  padding: 6px 10px;
+  padding: 12px 14px;
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.5;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 400px;
   z-index: 2147483647;
   pointer-events: auto;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  display: none;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
