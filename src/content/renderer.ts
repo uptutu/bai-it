@@ -42,10 +42,14 @@ function parseChunkedText(chunked: string): ChunkedLine[] {
 
 /**
  * 为文本中的生词添加标记
+ * @param text 原始文本
+ * @param newWords 生词列表
+ * @param vocabWords 生词本中的单词集合（会有特殊样式）
  */
 function markNewWords(
   text: string,
-  newWords: { word: string; definition: string }[]
+  newWords: { word: string; definition: string }[],
+  vocabWords?: Set<string>
 ): string {
   if (newWords.length === 0) return escapeHtml(text);
 
@@ -58,8 +62,12 @@ function markNewWords(
   return escapeHtml(text).replace(
     new RegExp(`\\b(${wordPattern})\\b`, "gi"),
     (match) => {
-      const def = wordMap.get(match.toLowerCase()) ?? "";
-      return `<span class="enlearn-word" data-def="${escapeHtml(def)}" data-word="${match.toLowerCase()}">${match}</span>`;
+      const lowerMatch = match.toLowerCase();
+      const def = wordMap.get(lowerMatch) ?? "";
+      // 检查是否在生词本中
+      const isVocabWord = vocabWords?.has(lowerMatch);
+      const className = isVocabWord ? "enlearn-vocab-word" : "enlearn-word";
+      return `<span class="${className}" data-def="${escapeHtml(def)}" data-word="${lowerMatch}">${match}</span>`;
     }
   );
 }
@@ -72,22 +80,22 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function renderL5(lines: ChunkedLine[], newWords: { word: string; definition: string }[]): string {
+function renderL5(lines: ChunkedLine[], newWords: { word: string; definition: string }[], vocabWords?: Set<string>): string {
   return lines
     .map((line) => {
       if (line.isParagraphBreak) return '<span class="enlearn-para-break" style="display:block !important;height:0.8em"></span>';
-      const textHtml = markNewWords(line.text, newWords);
+      const textHtml = markNewWords(line.text, newWords, vocabWords);
       const pad = line.indent > 0 ? `padding-left:${line.indent}em;` : "";
       return `<span class="enlearn-line enlearn-indent-${line.indent} enlearn-depth-${line.indent}" style="display:block !important;${pad}">${textHtml}</span>`;
     })
     .join("");
 }
 
-function renderL4(lines: ChunkedLine[], newWords: { word: string; definition: string }[]): string {
+function renderL4(lines: ChunkedLine[], newWords: { word: string; definition: string }[], vocabWords?: Set<string>): string {
   return lines
     .map((line) => {
       if (line.isParagraphBreak) return '<span class="enlearn-para-break" style="display:block !important;height:0.8em"></span>';
-      const textHtml = markNewWords(line.text, newWords);
+      const textHtml = markNewWords(line.text, newWords, vocabWords);
       const pad = line.indent > 0 ? `padding-left:${line.indent}em;` : "";
       // 保留缩进，不加透明度（depth 全为 0）
       return `<span class="enlearn-line enlearn-indent-${line.indent} enlearn-depth-0" style="display:block !important;${pad}">${textHtml}</span>`;
@@ -95,18 +103,18 @@ function renderL4(lines: ChunkedLine[], newWords: { word: string; definition: st
     .join("");
 }
 
-function renderL3(lines: ChunkedLine[], newWords: { word: string; definition: string }[]): string {
+function renderL3(lines: ChunkedLine[], newWords: { word: string; definition: string }[], vocabWords?: Set<string>): string {
   return lines
     .map((line) => {
       if (line.isParagraphBreak) return '<span class="enlearn-para-break" style="display:block !important;height:0.8em"></span>';
-      const textHtml = markNewWords(line.text, newWords);
+      const textHtml = markNewWords(line.text, newWords, vocabWords);
       // 只分行，不缩进（所有行左对齐）
       return `<span class="enlearn-line enlearn-indent-0 enlearn-depth-0" style="display:block !important">${textHtml}</span>`;
     })
     .join("");
 }
 
-function renderL2(lines: ChunkedLine[], newWords: { word: string; definition: string }[]): string {
+function renderL2(lines: ChunkedLine[], newWords: { word: string; definition: string }[], vocabWords?: Set<string>): string {
   const groups: string[] = [];
   let current = "";
 
@@ -120,16 +128,16 @@ function renderL2(lines: ChunkedLine[], newWords: { word: string; definition: st
   }
   if (current) groups.push(current);
 
-  const parts = groups.map((text) => markNewWords(text, newWords));
+  const parts = groups.map((text) => markNewWords(text, newWords, vocabWords));
   const html = parts.join('<span class="enlearn-separator">\u00B7</span>');
 
   return `<span class="enlearn-inline-content">${html}</span>`;
 }
 
-function renderL1(lines: ChunkedLine[], newWords: { word: string; definition: string }[]): string {
+function renderL1(lines: ChunkedLine[], newWords: { word: string; definition: string }[], vocabWords?: Set<string>): string {
   const parts = lines.map((line) => {
     if (line.isParagraphBreak) return " ";
-    const textHtml = markNewWords(line.text, newWords);
+    const textHtml = markNewWords(line.text, newWords, vocabWords);
     if (line.indent > 0) {
       // 从句/修饰部分变淡，主句保持正常
       return `<span class="enlearn-dim">${textHtml}</span>`;
@@ -142,8 +150,11 @@ function renderL1(lines: ChunkedLine[], newWords: { word: string; definition: st
 
 /**
  * 将 ChunkResult 渲染为 HTML 字符串
+ * @param result 分块结果
+ * @param intensity 显示强度 1-5
+ * @param vocabWords 生词本中的单词集合（会有特殊样式）
  */
-export function renderChunkedHtml(result: ChunkResult, intensity: number = 5): string {
+export function renderChunkedHtml(result: ChunkResult, intensity: number = 5, vocabWords?: Set<string>): string {
   if (result.isSimple) return "";
 
   const lines = parseChunkedText(result.chunked);
@@ -153,19 +164,19 @@ export function renderChunkedHtml(result: ChunkResult, intensity: number = 5): s
   let linesHtml: string;
   switch (intensity) {
     case 1:
-      linesHtml = renderL1(lines, result.newWords);
+      linesHtml = renderL1(lines, result.newWords, vocabWords);
       break;
     case 2:
-      linesHtml = renderL2(lines, result.newWords);
+      linesHtml = renderL2(lines, result.newWords, vocabWords);
       break;
     case 3:
-      linesHtml = renderL3(lines, result.newWords);
+      linesHtml = renderL3(lines, result.newWords, vocabWords);
       break;
     case 4:
-      linesHtml = renderL4(lines, result.newWords);
+      linesHtml = renderL4(lines, result.newWords, vocabWords);
       break;
     default:
-      linesHtml = renderL5(lines, result.newWords);
+      linesHtml = renderL5(lines, result.newWords, vocabWords);
       break;
   }
 
@@ -175,11 +186,14 @@ export function renderChunkedHtml(result: ChunkResult, intensity: number = 5): s
 
 /**
  * 创建分块 DOM 元素
+ * @param result 分块结果
+ * @param intensity 显示强度 1-5
+ * @param vocabWords 生词本中的单词集合（会有特殊样式）
  */
-export function createChunkedElement(result: ChunkResult, intensity: number = 5): HTMLElement | null {
+export function createChunkedElement(result: ChunkResult, intensity: number = 5, vocabWords?: Set<string>): HTMLElement | null {
   if (result.isSimple) return null;
 
   const wrapper = document.createElement("div");
-  wrapper.innerHTML = renderChunkedHtml(result, intensity);
+  wrapper.innerHTML = renderChunkedHtml(result, intensity, vocabWords);
   return wrapper.firstElementChild as HTMLElement;
 }

@@ -219,7 +219,11 @@ export type Message =
   | { type: "analyzeSentences"; sentenceIds: string[] }
   | { type: "translateWord"; word: string }
   | { type: "translateSelection"; text: string }
-  | { type: "getWordDetail"; word: string };
+  | { type: "getWordDetail"; word: string }
+  | { type: "addToVocab"; word: string; phonetic?: string; pos?: string; definition: string; example?: string }
+  | { type: "removeFromVocab"; word: string }
+  | { type: "checkVocab"; word: string }
+  | { type: "getVocabWords" };
 
 export type BackgroundMessage =
   | { type: "activate" }

@@ -351,6 +351,56 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   font-size: 13px;
 }
 
+/* 生词本单词（黄色下划线标记） */
+.enlearn-vocab-word {
+  border-bottom: 2px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.enlearn-vocab-word:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-bottom-color: #fbbf24;
+}
+
+/* 生词本按钮 */
+.enlearn-vocab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  color: rgba(139, 92, 246, 0.5);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.enlearn-vocab-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #a78bfa;
+}
+
+.enlearn-vocab-btn-active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #f59e0b;
+}
+
+.enlearn-vocab-btn-active:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
 /* 关闭按钮（用于翻译结果、错误信息等持久悬浮框） */
 .enlearn-tooltip-close {
   position: absolute;

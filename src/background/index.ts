@@ -19,6 +19,7 @@ import {
   learningRecordDAO,
   translationCacheDAO,
   wordDetailCacheDAO,
+  vocabDAO,
 } from "../shared/db.ts";
 
 // ========== 配置管理 ==========
@@ -496,6 +497,95 @@ async function handleMessage(
         });
 
         return result;
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    // ========== 生词本操作 ==========
+
+    case "addToVocab": {
+      const { word, phonetic, pos, definition, example } = message;
+      const db = await getDB();
+
+      try {
+        // 检查是否已存在
+        const existing = await vocabDAO.getByWord(db, word.toLowerCase());
+        if (existing) {
+          // 已存在，更新释义并增加遭遇次数
+          const updated = await vocabDAO.update(db, existing.id, {
+            phonetic: phonetic || existing.phonetic,
+            pos: pos || existing.pos,
+            definition: definition || existing.definition,
+            example: example || existing.example,
+            encounter_count: existing.encounter_count + 1,
+          });
+          return { success: true, record: updated };
+        }
+
+        // 新增
+        const record = await vocabDAO.add(db, {
+          word: word.toLowerCase(),
+          status: "new",
+          phonetic,
+          pos,
+          definition,
+          example,
+        });
+        return { success: true, record };
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    case "removeFromVocab": {
+      const { word } = message;
+      const db = await getDB();
+
+      try {
+        const existing = await vocabDAO.getByWord(db, word.toLowerCase());
+        if (!existing) {
+          return { success: false, error: "单词不在生词本中" };
+        }
+        await vocabDAO.delete(db, existing.id);
+        return { success: true };
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    case "checkVocab": {
+      const { word } = message;
+      const db = await getDB();
+
+      try {
+        const existing = await vocabDAO.getByWord(db, word.toLowerCase());
+        return { inVocab: !!existing, record: existing || null };
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    case "getVocabWords": {
+      const db = await getDB();
+
+      try {
+        const records = await vocabDAO.getAll(db);
+        // 返回单词列表（不含 mastered 状态的）
+        const words = records
+          .filter(r => r.status !== "mastered")
+          .map(r => ({
+            word: r.word,
+            phonetic: r.phonetic,
+            pos: r.pos,
+            definition: r.definition,
+            status: r.status,
+          }));
+        return { words };
       } catch (e) {
         const err = e as Error;
         return { error: err.message };

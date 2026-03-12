@@ -37,6 +37,7 @@ let mutationObserver: MutationObserver | null = null;
 let processTimer: ReturnType<typeof setTimeout> | null = null;
 const processQueue: Element[] = [];
 const knownWords = new Set<string>(); // 用户已掌握的词（从 storage 加载）
+const vocabBookWords = new Map<string, { phonetic?: string; pos?: string; definition?: string }>(); // 生词本中的单词
 
 // ========== 全局 Tooltip ==========
 
@@ -85,6 +86,66 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
     tooltipEl.style.display = "none";
     isTooltipPersistent = false;
     currentTooltipWord = null;
+    return;
+  }
+
+  // 处理生词本按钮
+  const vocabBtn = (e.target as Element).closest?.(".enlearn-vocab-btn") as HTMLElement | null;
+  if (vocabBtn) {
+    const word = vocabBtn.dataset.word;
+    if (!word) return;
+
+    const isInVocab = vocabBookWords.has(word);
+
+    if (isInVocab) {
+      // 从生词本移除
+      try {
+        const result = await sendMessage({ type: "removeFromVocab", word }) as { success?: boolean };
+        if (result.success) {
+          vocabBookWords.delete(word);
+          // 更新按钮状态
+          vocabBtn.classList.remove("enlearn-vocab-btn-active");
+          vocabBtn.textContent = "☆";
+          vocabBtn.title = "添加到生词本";
+        }
+      } catch {
+        // 静默失败
+      }
+    } else {
+      // 添加到生词本
+      // 从当前 tooltip 中获取单词信息
+      const wordTitleEl = tooltipEl?.querySelector(".enlearn-word-title");
+      const phoneticEl = tooltipEl?.querySelector(".enlearn-word-phonetic");
+      const posEl = tooltipEl?.querySelector(".enlearn-word-pos");
+      const defEl = tooltipEl?.querySelector(".enlearn-word-definition");
+      const exampleEl = tooltipEl?.querySelector(".enlearn-word-example");
+
+      const phonetic = phoneticEl?.textContent || undefined;
+      const pos = posEl?.textContent || undefined;
+      const definition = defEl?.textContent || "";
+      const example = exampleEl?.textContent || undefined;
+
+      try {
+        const result = await sendMessage({
+          type: "addToVocab",
+          word,
+          phonetic,
+          pos,
+          definition,
+          example,
+        }) as { success?: boolean };
+
+        if (result.success) {
+          vocabBookWords.set(word, { phonetic, pos, definition });
+          // 更新按钮状态
+          vocabBtn.classList.add("enlearn-vocab-btn-active");
+          vocabBtn.textContent = "★";
+          vocabBtn.title = "从生词本移除";
+        }
+      } catch {
+        // 静默失败
+      }
+    }
     return;
   }
 
@@ -320,12 +381,16 @@ function displayWordDetailResult(
   isTooltipPersistent = true;
   if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
 
+  // 检查是否在生词本中
+  const lowerWord = word.toLowerCase();
+  const inVocabBook = vocabBookWords.has(lowerWord);
+
   let html = `<div class="enlearn-word-detail">`;
 
   // 关闭按钮
   html += `<button class="enlearn-tooltip-close" title="关闭">✕</button>`;
 
-  // 单词头部：词 + 音标 + 词性
+  // 单词头部：词 + 音标 + 词性 + 生词本按钮
   html += `<div class="enlearn-word-header">`;
   html += `<span class="enlearn-word-title">${escapeHtml(word)}</span>`;
   if (phonetic) {
@@ -334,6 +399,11 @@ function displayWordDetailResult(
   if (pos) {
     html += `<span class="enlearn-word-pos">${escapeHtml(pos)}</span>`;
   }
+  // 生词本按钮
+  const vocabBtnClass = inVocabBook ? "enlearn-vocab-btn enlearn-vocab-btn-active" : "enlearn-vocab-btn";
+  const vocabBtnTitle = inVocabBook ? "从生词本移除" : "添加到生词本";
+  const vocabBtnIcon = inVocabBook ? "★" : "☆";
+  html += `<button class="${vocabBtnClass}" title="${vocabBtnTitle}" data-word="${escapeHtml(lowerWord)}">${vocabBtnIcon}</button>`;
   html += `</div>`;
 
   // 释义
@@ -483,6 +553,25 @@ async function init(): Promise<void> {
     const stored = await chrome.storage.local.get({ knownWords: [] });
     if (Array.isArray(stored.knownWords)) {
       for (const w of stored.knownWords) knownWords.add(w as string);
+    }
+  } catch {
+    // 静默失败
+  }
+
+  // 加载生词本
+  try {
+    const vocabResponse = await sendMessage({ type: "getVocabWords" }) as {
+      words?: Array<{ word: string; phonetic?: string; pos?: string; definition?: string; status?: string }>;
+      error?: string;
+    };
+    if (vocabResponse.words) {
+      for (const w of vocabResponse.words) {
+        vocabBookWords.set(w.word.toLowerCase(), {
+          phonetic: w.phonetic,
+          pos: w.pos,
+          definition: w.definition,
+        });
+      }
     }
   } catch {
     // 静默失败
@@ -1023,7 +1112,7 @@ function processElementWithLinks(el: Element, text: string): void {
   }
 
   // 6. Vocab 标注：在克隆中的非 URL 文本节点上标记生词
-  const vocabAnnotations = isLoaded() ? annotateWords(text, knownWords) : [];
+  const vocabAnnotations = isLoaded() ? annotateWords(text, knownWords, vocabBookWords) : [];
   if (vocabAnnotations.length > 0) {
     applyVocabToClone(clone, vocabAnnotations);
   }
@@ -1266,7 +1355,7 @@ function processTextElement(el: Element, text: string): void {
 
   // 生词标注（不管是否拆分）
   const vocabAnnotations = isLoaded()
-    ? annotateWords(text, knownWords)
+    ? annotateWords(text, knownWords, vocabBookWords)
     : [];
 
   // 收集生词列表（只要词）
@@ -1281,7 +1370,7 @@ function processTextElement(el: Element, text: string): void {
       isSimple: false,
       newWords: toNewWordsFormat(vocabAnnotations),
     };
-    const chunkedEl = createChunkedElement(chunkResult, config.chunkIntensity);
+    const chunkedEl = createChunkedElement(chunkResult, config.chunkIntensity, new Set(vocabBookWords.keys()));
     if (chunkedEl) {
       copyFontStyles(el, chunkedEl);
       insertChunkedElement(el, chunkedEl);
@@ -1340,7 +1429,7 @@ function addManualTrigger(el: Element, text: string): void {
         const scanResult = scanSplit(text, "short", "fine");
         if (scanResult.chunks.length > 1) {
           const vocabAnnotations = isLoaded()
-            ? annotateWords(text, knownWords)
+            ? annotateWords(text, knownWords, vocabBookWords)
             : [];
           result = {
             original: text,
