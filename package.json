@@ -6,10 +6,9 @@
     "dev": "node build.mjs --watch",
     "build": "node build.mjs",
     "build:firefox": "npm run build && node scripts/package-firefox.mjs",
-    "release": "npm test && npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && cd dist && zip -r \"../bai-it-v${VERSION}.zip\" . && cd .. && node scripts/package-firefox.mjs && echo \"Packaged: bai-it-v${VERSION}.zip + Firefox zip\"",
-    "release:chrome": "npm test && npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && cd dist && zip -r \"../bai-it-v${VERSION}.zip\" . && cd .. && echo \"Packaged Chrome-only: bai-it-v${VERSION}.zip\"",
     "build:safari": "npm run build && node scripts/build-safari.mjs",
     "build:safari:init": "npm run build && node scripts/build-safari.mjs --init",
+    "release": "npm test && npm run build && node scripts/release.mjs",
     "test": "vitest run"
   },
   "devDependencies": {
