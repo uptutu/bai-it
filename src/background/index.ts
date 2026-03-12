@@ -12,8 +12,14 @@
 import type { Message, BaitConfig, ChunkResult, PatternKey } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
-import { chunkSentences, analyzeSentenceFull } from "../shared/llm-adapter.ts";
-import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO } from "../shared/db.ts";
+import { chunkSentences, analyzeSentenceFull, translateWord, translateText, getWordDetail } from "../shared/llm-adapter.ts";
+import {
+  openDB as openDataDB,
+  pendingSentenceDAO,
+  learningRecordDAO,
+  translationCacheDAO,
+  wordDetailCacheDAO,
+} from "../shared/db.ts";
 
 // ========== 配置管理 ==========
 
@@ -397,6 +403,105 @@ async function handleMessage(
       return { ok: true };
     }
 
+
+    case "translateWord": {
+      const { word } = message;
+      const cfg = await getConfig();
+      const llmCfg = resolveLLMConfig(cfg.llm);
+
+      if (!llmCfg.apiKey) {
+        return { error: "未配置 API Key" };
+      }
+
+      try {
+        const result = await translateWord(word, llmCfg);
+        return result;
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    case "translateSelection": {
+      const { text } = message;
+      const cfg = await getConfig();
+      const llmCfg = resolveLLMConfig(cfg.llm);
+      const targetLanguage = cfg.targetLanguage || "zh";
+
+      if (!llmCfg.apiKey) {
+        return { error: "未配置 API Key，请在设置页面配置" };
+      }
+
+      try {
+        // 查缓存
+        const db = await getDB();
+        const cached = await translationCacheDAO.get(db, text, targetLanguage);
+        if (cached) {
+          return { translation: cached.translation, keyWords: cached.keyWords };
+        }
+
+        // 调 LLM
+        const result = await translateText(text, targetLanguage, llmCfg);
+
+        // 存缓存
+        await translationCacheDAO.set(db, {
+          text,
+          targetLanguage,
+          translation: result.translation,
+          keyWords: result.keyWords,
+        });
+
+        return result;
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
+    case "getWordDetail": {
+      const { word } = message;
+      const cfg = await getConfig();
+      const llmCfg = resolveLLMConfig(cfg.llm);
+      const targetLanguage = cfg.targetLanguage || "zh";
+
+      if (!llmCfg.apiKey) {
+        return { error: "未配置 API Key" };
+      }
+
+      try {
+        // 查缓存
+        const db = await getDB();
+        const cached = await wordDetailCacheDAO.get(db, word, targetLanguage);
+        if (cached) {
+          return {
+            word: cached.word,
+            phonetic: cached.phonetic,
+            pos: cached.pos,
+            definition: cached.definition,
+            example: cached.example,
+          };
+        }
+
+        // 调 LLM
+        const result = await getWordDetail(word, targetLanguage, llmCfg);
+
+        // 存缓存
+        await wordDetailCacheDAO.set(db, {
+          word,
+          targetLanguage,
+          phonetic: result.phonetic,
+          pos: result.pos,
+          definition: result.definition,
+          example: result.example,
+        });
+
+        return result;
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+      }
+    }
+
     default:
       return { error: "Unknown message type" };
   }
@@ -424,5 +529,29 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     const siteOn = hostname ? await isSiteEnabled(hostname) : false;
     const active = siteOn && !pausedTabs.has(tabId);
     updateIcon(tabId, active);
+  }
+});
+
+// ========== 右键菜单 ==========
+
+// 安装时创建菜单
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "translate-selection",
+    title: "翻译选中内容",
+    contexts: ["selection"],
+  });
+});
+
+// 菜单点击处理
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "translate-selection" && info.selectionText && tab?.id) {
+    const text = info.selectionText.trim();
+
+    // 发送给 content script 显示翻译结果
+    chrome.tabs.sendMessage(tab.id, {
+      type: "showTranslationTooltip",
+      text,
+    }).catch(() => {});
   }
 });

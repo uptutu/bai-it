@@ -8,6 +8,8 @@
     "build:firefox": "npm run build && node scripts/package-firefox.mjs",
     "release": "npm test && npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && cd dist && zip -r \"../bai-it-v${VERSION}.zip\" . && cd .. && node scripts/package-firefox.mjs && echo \"Packaged: bai-it-v${VERSION}.zip + Firefox zip\"",
     "release:chrome": "npm test && npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && cd dist && zip -r \"../bai-it-v${VERSION}.zip\" . && cd .. && echo \"Packaged Chrome-only: bai-it-v${VERSION}.zip\"",
+    "build:safari": "npm run build && node scripts/build-safari.mjs",
+    "build:safari:init": "npm run build && node scripts/build-safari.mjs --init",
     "test": "vitest run"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "vitest": "^3"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }

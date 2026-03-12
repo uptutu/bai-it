@@ -12,7 +12,7 @@ import { isEnglish } from "../shared/rule-engine.ts";
 import { scanSplit, toChunkedString } from "../shared/scan-rules.ts";
 import {
   loadFrequencyList, loadDictionary, loadLemmaMap,
-  annotateWords, toNewWordsFormat, isLoaded,
+  annotateWords, toNewWordsFormat, isLoaded, lookupDictionary,
 } from "../shared/vocab.ts";
 import type { BaitConfig, ChunkResult, BackgroundMessage } from "../shared/types.ts";
 import { DEFAULT_CONFIG } from "../shared/types.ts";
@@ -142,6 +142,256 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ========== 右键查词 ==========
+
+function showTranslation(word: string): void {
+  if (!word || !tooltipEl) return;
+
+  const lowerWord = word.toLowerCase();
+  let definition = lookupDictionary(lowerWord);
+
+  // 如果本地词典找不到，使用 LLM 查询
+  if (!definition) {
+    showTooltipLoading(tooltipEl, word);
+    sendMessage({ type: "translateWord", word: lowerWord })
+      .then((result) => {
+        if (result && typeof result === "object" && "definition" in result) {
+          const r = result as { definition: string; phonetic?: string; example?: string };
+          displayWordDefinition(lowerWord, r.definition, r.phonetic, r.example);
+        } else {
+          showTooltipError(tooltipEl, word);
+        }
+      })
+      .catch(() => {
+        showTooltipError(tooltipEl, word);
+      });
+    return;
+  }
+
+  displayWordDefinition(lowerWord, definition);
+}
+
+function displayWordDefinition(word: string, definition: string, phonetic?: string, example?: string): void {
+  if (!tooltipEl) return;
+
+  // Cancel any pending hide
+  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+
+  currentTooltipWord = word;
+  let html = "";
+  if (phonetic) {
+    html += `<span class="enlearn-tooltip-phonetic">${escapeHtml(phonetic)}</span>`;
+  }
+  html += `<span class="enlearn-tooltip-def">${escapeHtml(definition)}</span>`;
+  if (example) {
+    html += `<span class="enlearn-tooltip-example">${escapeHtml(example)}</span>`;
+  }
+  html += `<button class="enlearn-tooltip-btn" title="标记为已掌握">✓</button>`;
+  tooltipEl.innerHTML = html;
+  tooltipEl.style.display = "flex";
+
+  // Position tooltip near center of viewport (for right-click context)
+  const tipRect = tooltipEl.getBoundingClientRect();
+  let left = window.innerWidth / 2 - tipRect.width / 2;
+  let top = window.innerHeight / 3 - tipRect.height / 2;
+
+  if (left < 4) left = 4;
+  if (left + tipRect.width > window.innerWidth - 4) {
+    left = window.innerWidth - 4 - tipRect.width;
+  }
+  if (top < 4) top = 4;
+
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
+}
+
+function showTooltipLoading(tooltipEl: HTMLElement, word: string): void {
+  tooltipEl.innerHTML = `<span class="enlearn-tooltip-loading">查询 "${escapeHtml(word)}"...</span>`;
+  tooltipEl.style.display = "flex";
+
+  const tipRect = tooltipEl.getBoundingClientRect();
+  let left = window.innerWidth / 2 - tipRect.width / 2;
+  let top = window.innerHeight / 3 - tipRect.height / 2;
+
+  if (left < 4) left = 4;
+  if (left + tipRect.width > window.innerWidth - 4) {
+    left = window.innerWidth - 4 - tipRect.width;
+  }
+  if (top < 4) top = 4;
+
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
+}
+
+function showTooltipError(tooltipEl: HTMLElement, word: string): void {
+  alert(`未找到 "${word}" 的释义`);
+  tooltipEl.style.display = "none";
+}
+
+// ========== 右键菜单翻译 ==========
+
+/** 判断是否是单个英文单词 */
+function isSingleEnglishWord(text: string): boolean {
+  const trimmed = text.trim();
+  // 只包含字母、可能带连字符或撇号
+  if (!/^[a-zA-Z][a-zA-Z'\-]*[a-zA-Z]?$/i.test(trimmed)) {
+    return false;
+  }
+  // 长度合理（2-30字符）
+  return trimmed.length >= 2 && trimmed.length <= 30;
+}
+
+async function handleShowTranslationTooltip(text: string): Promise<void> {
+  if (!tooltipEl) return;
+
+  const trimmedText = text.trim();
+  const isWord = isSingleEnglishWord(trimmedText);
+
+  // 显示加载状态
+  showTooltipLoading(tooltipEl, trimmedText);
+
+  try {
+    if (isWord) {
+      // 单词：调用 getWordDetail
+      const result = await sendMessage({ type: "getWordDetail", word: trimmedText.toLowerCase() }) as {
+        word?: string;
+        phonetic?: string;
+        pos?: string;
+        definition?: string;
+        example?: string;
+        error?: string;
+      };
+
+      if (result.error) {
+        tooltipEl.innerHTML = `<span class="enlearn-tooltip-error">${escapeHtml(result.error)}</span>`;
+        return;
+      }
+
+      if (result.definition) {
+        displayWordDetailResult(result.word || trimmedText, result.phonetic, result.pos, result.definition, result.example);
+      }
+    } else {
+      // 句子/短语：调用 translateSelection
+      const result = await sendMessage({ type: "translateSelection", text: trimmedText }) as {
+        translation?: string;
+        keyWords?: { word: string; meaning: string }[];
+        error?: string;
+      };
+
+      if (result.error) {
+        tooltipEl.innerHTML = `<span class="enlearn-tooltip-error">${escapeHtml(result.error)}</span>`;
+        return;
+      }
+
+      if (result.translation) {
+        displayTranslationResult(trimmedText, result.translation, result.keyWords);
+      }
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "翻译失败";
+    tooltipEl.innerHTML = `<span class="enlearn-tooltip-error">${escapeHtml(errMsg)}</span>`;
+  }
+}
+
+/** 显示单词详情结果（含音标、词性） */
+function displayWordDetailResult(
+  word: string,
+  phonetic?: string,
+  pos?: string,
+  definition?: string,
+  example?: string
+): void {
+  if (!tooltipEl) return;
+
+  // Cancel any pending hide
+  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+
+  let html = `<div class="enlearn-word-detail">`;
+
+  // 单词头部：词 + 音标 + 词性
+  html += `<div class="enlearn-word-header">`;
+  html += `<span class="enlearn-word-title">${escapeHtml(word)}</span>`;
+  if (phonetic) {
+    html += `<span class="enlearn-word-phonetic">${escapeHtml(phonetic)}</span>`;
+  }
+  if (pos) {
+    html += `<span class="enlearn-word-pos">${escapeHtml(pos)}</span>`;
+  }
+  html += `</div>`;
+
+  // 释义
+  if (definition) {
+    html += `<div class="enlearn-word-definition">${escapeHtml(definition)}</div>`;
+  }
+
+  // 例句
+  if (example) {
+    html += `<div class="enlearn-word-example">${escapeHtml(example)}</div>`;
+  }
+
+  html += `</div>`;
+
+  tooltipEl.innerHTML = html;
+  tooltipEl.style.display = "block";
+
+  // Position tooltip
+  const tipRect = tooltipEl.getBoundingClientRect();
+  let left = window.innerWidth / 2 - tipRect.width / 2;
+  let top = window.innerHeight / 3 - tipRect.height / 2;
+
+  if (left < 4) left = 4;
+  if (left + tipRect.width > window.innerWidth - 4) {
+    left = window.innerWidth - 4 - tipRect.width;
+  }
+  if (top < 4) top = 4;
+
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
+}
+
+function displayTranslationResult(
+  originalText: string,
+  translation: string,
+  keyWords?: { word: string; meaning: string }[]
+): void {
+  if (!tooltipEl) return;
+
+  // Cancel any pending hide
+  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+
+  let html = `<div class="enlearn-translation-result">`;
+  html += `<div class="enlearn-translation-text">${escapeHtml(translation)}</div>`;
+
+  if (keyWords && keyWords.length > 0) {
+    html += `<div class="enlearn-translation-keywords">`;
+    for (const kw of keyWords) {
+      html += `<span class="enlearn-keyword"><b>${escapeHtml(kw.word)}</b> ${escapeHtml(kw.meaning)}</span>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  tooltipEl.innerHTML = html;
+  tooltipEl.style.display = "block";
+
+  // Position tooltip
+  const tipRect = tooltipEl.getBoundingClientRect();
+  let left = window.innerWidth / 2 - tipRect.width / 2;
+  let top = window.innerHeight / 3 - tipRect.height / 2;
+
+  if (left < 4) left = 4;
+  if (left + tipRect.width > window.innerWidth - 4) {
+    left = window.innerWidth - 4 - tipRect.width;
+  }
+  if (top < 4) top = 4;
+
+  tooltipEl.style.left = `${left}px`;
+  tooltipEl.style.top = `${top}px`;
+}
+
+
+
 function onTriggerParentHover(e: MouseEvent): void {
   const el = e.target as Element;
   const wrap = el.closest?.(".enlearn-trigger-wrap, [data-enlearn-trigger]");
@@ -197,6 +447,11 @@ async function init(): Promise<void> {
     else if (message.type === "deactivate") deactivate();
     else if (message.type === "pause") pauseProcessing();
     else if (message.type === "resume") resumeProcessing();
+    else if (message.type === "show-translation") showTranslation(message.word);
+    else if (message.type === "showTranslationTooltip") {
+      // 右键菜单翻译
+      handleShowTranslationTooltip(message.text);
+    }
   });
 }
 
