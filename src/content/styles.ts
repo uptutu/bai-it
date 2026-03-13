@@ -75,17 +75,17 @@ export const ENLEARN_STYLES = `
   display: none;
   background: #1a1a2e;
   color: #e2e8f0;
-  padding: 6px 10px;
+  padding: 12px 14px;
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.5;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 400px;
   z-index: 2147483647;
   pointer-events: auto;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  display: none;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -349,5 +349,95 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
 .enlearn-tooltip-error {
   color: #f87171;
   font-size: 13px;
+}
+
+/* 生词本单词（黄色下划线标记） */
+.enlearn-vocab-word {
+  border-bottom: 2px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.enlearn-vocab-word:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-bottom-color: #fbbf24;
+}
+
+/* 生词本按钮 */
+.enlearn-vocab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  color: rgba(139, 92, 246, 0.5);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.enlearn-vocab-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #a78bfa;
+}
+
+.enlearn-vocab-btn-active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #f59e0b;
+}
+
+.enlearn-vocab-btn-active:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+/* 关闭按钮（用于翻译结果、错误信息等持久悬浮框） */
+.enlearn-tooltip-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.enlearn-tooltip-close:hover {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+}
+
+/* 错误结果容器 */
+.enlearn-error-result {
+  position: relative;
+  padding-right: 28px;
+}
+
+/* 翻译结果和单词详情容器需要相对定位以放置关闭按钮 */
+.enlearn-translation-result,
+.enlearn-word-detail {
+  position: relative;
+  padding-right: 28px;
 }
 `;
