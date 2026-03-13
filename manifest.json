@@ -5,7 +5,8 @@
   "version": "0.2.5",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "contextMenus"
   ],
   "host_permissions": [
     "*://*/*"

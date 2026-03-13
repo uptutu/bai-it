@@ -260,4 +260,94 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   }
 
 }
+
+/* 右键翻译结果 */
+.enlearn-translation-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.enlearn-translation-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.enlearn-translation-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.enlearn-keyword {
+  font-size: 12px;
+  padding: 3px 8px;
+  background: rgba(139, 92, 246, 0.15);
+  border-radius: 4px;
+  color: #a78bfa;
+}
+
+.enlearn-keyword b {
+  color: #c4b5fd;
+  margin-right: 4px;
+}
+
+/* 单词详情（含音标、词性） */
+.enlearn-word-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 300px;
+}
+
+.enlearn-word-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.enlearn-word-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #c4b5fd;
+}
+
+.enlearn-word-phonetic {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  font-family: "Lucida Sans Unicode", serif;
+}
+
+.enlearn-word-pos {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 3px;
+  color: #a78bfa;
+}
+
+.enlearn-word-definition {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.enlearn-word-example {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  font-style: italic;
+  padding-left: 8px;
+  border-left: 2px solid rgba(139, 92, 246, 0.3);
+}
+
+/* 错误提示 */
+.enlearn-tooltip-error {
+  color: #f87171;
+  font-size: 13px;
+}
 `;
