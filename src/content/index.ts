@@ -1326,9 +1326,10 @@ function scanPage(): void {
 function processTextElement(el: Element, text: string): void {
   processedElements.add(el);
 
-  // 含 URL 链接的元素 → clone + DOM 手术路径（保留 <a>）
+  // 含 URL 链接或 <img> 等非文本内容的元素 → clone + DOM 手术路径（保留 <a>, <img> 等）
   const hasUrlLinks = el.querySelector('a[href^="http"]') !== null;
-  if (hasUrlLinks) {
+  const hasNonTextContent = el.querySelector('img, video, audio, iframe, svg, canvas') !== null;
+  if (hasUrlLinks || hasNonTextContent) {
     processElementWithLinks(el, text);
     return;
   }
