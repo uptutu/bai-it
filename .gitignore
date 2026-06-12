@@ -1,6 +1,7 @@
 # Dependencies & build
 node_modules/
 dist/
+dist-firefox/
 
 # Environment variables
 .env
@@ -18,12 +19,32 @@ _local/
 
 # Build artifacts
 bai-it-v*.zip
+bai-it-firefox-v*.zip
+bai-it-source.zip
 
 # Unrelated project
 frontend-slides-main/
 
 # Test output screenshots
 tests/screenshots/
+
+# Vitest coverage output
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python (if any helper scripts added)
+__pycache__/
+*.pyc
+*.pyo
 
 # One-off debug test scripts
 tests/acceptance/twitter-*.mjs
@@ -38,6 +59,12 @@ scripts/dict-batch*.js
 
 # Claude memory (per-machine)
 .claude/
+
+# oh-my-claudecode (per-machine agent state)
+.omc/
+
+# CodeGraph index (auto-rebuilt from sources)
+.codegraph/
 
 # Edge store logo
 icons/edge-logo-300.png
