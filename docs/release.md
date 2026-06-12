@@ -50,12 +50,13 @@ git add -A
 git commit -m "release: v{版本号}"
 git tag v{版本号}
 git push origin main --tags
-gh release create v{版本号} bai-it-v{版本号}.zip bai-it-firefox-v{版本号}.zip \
-  --title "v{版本号} {简要说明}" \
-  --notes "{发布说明，列出主要变更}"
 ```
 
-Claude 根据最近的 commit 自动生成发布说明。GitHub Release 同时挂 Chrome/Edge 和 Firefox 两个 zip。
+> **CI 自动发布（推荐）**：[`.github/workflows/release.yml`](../.github/workflows/release.yml) 监听 `v*` tag push，自动跑测试 + 构建 + 打 Chrome/Firefox/Safari 三个 zip + 创建 GitHub Release（`generate_release_notes: true` 自动生成 notes）。本地只需 push tag。
+>
+> 触发后查看进度：仓库 → Actions → release workflow。
+>
+> 本地手动发布仍可用 `npm run release`（同样产出三个 zip + 旧式 `gh release create`）。
 
 ### 6. 提醒用户上传商店
 
