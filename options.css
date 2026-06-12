@@ -378,6 +378,88 @@ color: var(--text-ghost);
   color: var(--error-dim);
 }
 
+.filter-bar-spacer { flex: 1; }
+
+/* ═══ DASHBOARD EXPORT BAR ═══ */
+.dashboard-export-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  margin-bottom: 28px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+}
+.dashboard-export-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ═══ EXPORT MENU ═══ */
+.export-menu { position: relative; }
+.export-menu-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.16), rgba(139,92,246,0.16));
+  border: 1px solid rgba(139,92,246,0.3);
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.export-menu-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99,102,241,0.28), rgba(139,92,246,0.28));
+  border-color: rgba(139,92,246,0.5);
+}
+.export-menu-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.export-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.export-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  color: var(--text);
+}
+.export-menu-item:hover:not(:disabled) { background: var(--bg-hover); }
+.export-menu-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.export-menu-item-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.export-menu-item-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 /* ═══ SENTENCE LIST ITEM (collapsed) ═══ */
 .sent-item {
   padding: 20px 24px;

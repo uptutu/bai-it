@@ -154,6 +154,7 @@ export const EXAMPLE_DASHBOARD: DashboardData = {
   todayCount: 8,
   recentSentences: exampleSentences.slice(0, 3),
   loading: false,
+  allRecords: exampleSentences,
 };
 
 export const EXAMPLE_REVIEW: ReviewData = {

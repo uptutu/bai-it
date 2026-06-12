@@ -107,6 +107,80 @@ function sendMessage(message: Message): Promise<unknown> {
   return chrome.runtime.sendMessage(message);
 }
 
+// ========== 导出按钮 ==========
+
+const exportBtn = $<HTMLButtonElement>("export-btn");
+const exportDropdown = $("export-dropdown");
+const exportHint = $("export-hint");
+
+async function loadExportableRecords(): Promise<import("../shared/types.ts").LearningRecord[]> {
+  const result = (await sendMessage({ type: "getExportableRecords" })) as
+    | { records: import("../shared/types.ts").LearningRecord[] }
+    | { error: string; records: import("../shared/types.ts").LearningRecord[] };
+  if ("error" in result && result.records.length === 0) {
+    updateExportHint("无法读取数据");
+    return [];
+  }
+  return result.records;
+}
+
+function updateExportHint(text: string): void {
+  exportHint.textContent = text;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function handleExport(format: "epub" | "md" | "pdf"): Promise<void> {
+  exportDropdown.classList.add("hidden");
+  const records = await loadExportableRecords();
+  if (records.length === 0) {
+    updateExportHint("还没有难句，去浏览网页攒几条");
+    return;
+  }
+
+  const doc = {
+    title: "掰it 难句集",
+    author: "掰it",
+    description: `共 ${records.length} 条难句`,
+    language: "en",
+    records,
+  };
+
+  // 动态 import：jszip 只在用户点导出时才执行。
+  // 注：popup 是 IIFE bundle，ESBuild 不会为 dynamic import 拆出独立 chunk，
+  // 所以 jszip 实际仍会被打包进 popup.js (~110KB)。这是 IIFE 模式的固有限制。
+  // 拆 chunk 需要把 popup 改 ESM，Chrome MV3 不支持 content script ESM 但 popup 可以，
+  // 是后续优化点。当前最简方案是接受这点体积换来功能可用性。
+  const exporters = await import("../shared/exporters/index.ts");
+
+  try {
+    if (format === "pdf") {
+      exporters.exportToPdf(doc);
+      updateExportHint(`已发送 ${records.length} 条到打印对话框`);
+      return;
+    }
+    if (format === "md") {
+      const result = exporters.exportToMarkdown(doc);
+      triggerBlobDownload(result.blob, result.filename);
+    } else {
+      const result = await exporters.exportToEpub(doc);
+      triggerBlobDownload(result.blob, result.filename);
+    }
+    updateExportHint(`已导出 ${records.length} 条 · ${format.toUpperCase()}`);
+  } catch (err) {
+    updateExportHint(`导出失败：${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // ========== 辅助力度：config → slider 值 ==========
 
 function configToAssistLevel(config: BaitConfig): number {
@@ -321,6 +395,45 @@ async function init(): Promise<void> {
   linkOptions.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
+  });
+
+  // 导出按钮 — 切换下拉显示
+  exportBtn.addEventListener("click", async () => {
+    const isHidden = exportDropdown.classList.contains("hidden");
+    if (isHidden) {
+      exportDropdown.classList.remove("hidden");
+      // 预热：点击时先拉数据（缓存以便下拉项点击立即可用）
+      const records = await loadExportableRecords();
+      updateExportHint(
+        records.length > 0
+          ? `${records.length} 条难句可导出`
+          : "还没有难句，去浏览网页攒几条",
+      );
+      // 禁用按钮当无数据
+      exportBtn.disabled = records.length === 0;
+    } else {
+      exportDropdown.classList.add("hidden");
+    }
+  });
+
+  // 点外面关闭下拉
+  document.addEventListener("click", (e) => {
+    if (
+      !exportDropdown.classList.contains("hidden") &&
+      !exportDropdown.contains(e.target as Node) &&
+      e.target !== exportBtn
+    ) {
+      exportDropdown.classList.add("hidden");
+    }
+  });
+
+  // 三个格式选项
+  const exportButtons = exportDropdown.querySelectorAll<HTMLButtonElement>("[data-format]");
+  exportButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const fmt = btn.dataset.format as "epub" | "md" | "pdf";
+      void handleExport(fmt);
+    });
   });
 }
 

@@ -6,6 +6,7 @@ import { ChunkLines } from "../components/ChunkLines.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
 import { VocabPill } from "../components/VocabPill.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
+import { ExportMenu } from "../components/ExportMenu.tsx";
 import { useSentences, type SentenceItem } from "../hooks/useSentences.ts";
 import { useMasteredWords } from "../hooks/useMasteredWords.ts";
 import { PATTERN_LABELS } from "../constants.ts";
@@ -219,6 +220,11 @@ export function Sentences({ db, isExample }: SentencesProps) {
   const getItemId = (item: SentenceItem) =>
     item.type === "analyzed" ? item.record.id : item.pending.id;
 
+  // 提取所有已分析记录供导出（pending 无 LLM 结果，导出没意义）
+  const exportableRecords: LearningRecord[] = items
+    .filter((i): i is SentenceItem & { type: "analyzed" } => i.type === "analyzed")
+    .map((i) => i.record);
+
   return (
     <>
       {/* Filter bar */}
@@ -236,6 +242,17 @@ export function Sentences({ db, isExample }: SentencesProps) {
             onClick={() => setFilter(pk)}
           />
         ))}
+        <div className="filter-bar-spacer" />
+        <ExportMenu
+          doc={{
+            title: "掰it 难句集",
+            author: "掰it",
+            description: `共 ${exportableRecords.length} 条难句，导出时间 ${new Date().toLocaleString("zh-CN")}`,
+            language: "en",
+            records: exportableRecords,
+          }}
+          disabled={exportableRecords.length === 0}
+        />
       </div>
 
       {/* Sentence list */}

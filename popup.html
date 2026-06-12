@@ -13,12 +13,14 @@
 
     body {
       width: 340px;
+      max-height: 600px;
+      overflow-y: auto;
+      overflow-x: hidden;
       font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 13px;
       color: rgba(255,255,255,0.7);
       background: #09090b;
       border-radius: 16px;
-      overflow: hidden;
     }
 
     /* ===== Header ===== */
@@ -363,6 +365,90 @@
     }
 
     .footer a:hover { color: #fca5a5; }
+
+    /* ===== Export Area ===== */
+    .export-area {
+      position: relative;
+      padding: 10px 16px 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .export-area.export-area-top {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(239,68,68,0.04), transparent);
+    }
+
+    .export-btn {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(239,68,68,0.4);
+      background: rgba(239,68,68,0.12);
+      color: #fca5a5;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .export-btn:hover:not(:disabled) {
+      background: rgba(239,68,68,0.22);
+      border-color: rgba(239,68,68,0.6);
+    }
+    .export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .export-hint {
+      flex: 1;
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      line-height: 1.4;
+    }
+
+    .export-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 16px;
+      right: 16px;
+      background: #1a1a1d;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .export-dropdown.hidden { display: none; }
+
+    .export-dropdown-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      padding: 8px 10px;
+      border: 0;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+      color: #fafafa;
+      font-family: inherit;
+    }
+    .export-dropdown-item:hover { background: rgba(255,255,255,0.06); }
+
+    .export-dropdown-label {
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .export-dropdown-hint {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+    }
   </style>
 </head>
 <body>
@@ -379,6 +465,26 @@
     <button class="action-btn is-on" id="action-btn">
       <span id="action-text">显示原文</span>
     </button>
+  </div>
+
+  <!-- Export button (placed prominently right under the main action button) -->
+  <div class="export-area export-area-top">
+    <button class="export-btn" id="export-btn" type="button">📤 导出难句 ▾</button>
+    <div class="export-dropdown hidden" id="export-dropdown">
+      <button class="export-dropdown-item" data-format="epub" type="button">
+        <span class="export-dropdown-label">EPUB</span>
+        <span class="export-dropdown-hint">推送到阅读器</span>
+      </button>
+      <button class="export-dropdown-item" data-format="md" type="button">
+        <span class="export-dropdown-label">Markdown</span>
+        <span class="export-dropdown-hint">纯文本备份</span>
+      </button>
+      <button class="export-dropdown-item" data-format="pdf" type="button">
+        <span class="export-dropdown-label">PDF</span>
+        <span class="export-dropdown-hint">系统打印对话框</span>
+      </button>
+    </div>
+    <div class="export-hint" id="export-hint"></div>
   </div>
 
   <!-- Site-level toggle -->

@@ -592,6 +592,19 @@ async function handleMessage(
       }
     }
 
+    case "getExportableRecords": {
+      const db = await getDB();
+      try {
+        const records = await learningRecordDAO.getAll(db);
+        // 按时间倒序
+        const sorted = [...records].sort((a, b) => b.created_at - a.created_at);
+        return { records: sorted };
+      } catch (e) {
+        const err = e as Error;
+        return { error: err.message, records: [] };
+      }
+    }
+
     case "exportVocab": {
       const db = await getDB();
 

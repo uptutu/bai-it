@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { LearningRecord, PendingSentenceRecord } from "../../shared/types.ts";
 import { learningRecordDAO, vocabDAO, pendingSentenceDAO } from "../../shared/db.ts";
-import { EXAMPLE_DASHBOARD } from "../exampleData.ts";
+import { EXAMPLE_DASHBOARD, EXAMPLE_SENTENCES } from "../exampleData.ts";
 
 export interface DashboardData {
   totalSentences: number;
@@ -12,6 +12,8 @@ export interface DashboardData {
   recentPending: PendingSentenceRecord[];
   pendingCount: number;
   loading: boolean;
+  /** 全量已分析记录（供导出） */
+  allRecords: LearningRecord[];
 }
 
 export function useDashboardData(db: IDBDatabase | null, isExample?: boolean): DashboardData {
@@ -24,11 +26,17 @@ export function useDashboardData(db: IDBDatabase | null, isExample?: boolean): D
     recentPending: [],
     pendingCount: 0,
     loading: true,
+    allRecords: [],
   });
 
   useEffect(() => {
     if (isExample) {
-      setData({ ...EXAMPLE_DASHBOARD, recentPending: [], pendingCount: 0 });
+      setData({
+        ...EXAMPLE_DASHBOARD,
+        recentPending: [],
+        pendingCount: 0,
+        allRecords: EXAMPLE_SENTENCES.records,
+      });
       return;
     }
 
@@ -67,6 +75,7 @@ export function useDashboardData(db: IDBDatabase | null, isExample?: boolean): D
         recentSentences: recent,
         recentPending: recentPend,
         pendingCount: unanalyzedCount,
+        allRecords: sorted,
         loading: false,
       });
     }

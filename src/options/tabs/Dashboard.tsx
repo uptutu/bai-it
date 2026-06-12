@@ -3,6 +3,7 @@ import { GlassCard } from "../components/GlassCard.tsx";
 import { PatternTag } from "../components/PatternTag.tsx";
 import { ChunkLines } from "../components/ChunkLines.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
+import { ExportMenu } from "../components/ExportMenu.tsx";
 import { useDashboardData } from "../hooks/useDashboardData.ts";
 
 interface DashboardProps {
@@ -36,7 +37,7 @@ function extractDomain(url?: string): string {
 }
 
 export function Dashboard({ db, isExample, pendingCount, hasApi, onGoToReview, onGoToSettings }: DashboardProps) {
-  const { totalSentences, totalWords, masteredWords, todayCount, recentSentences, recentPending, loading } = useDashboardData(db, isExample);
+  const { totalSentences, totalWords, masteredWords, todayCount, recentSentences, recentPending, allRecords, loading } = useDashboardData(db, isExample);
 
   if (loading) return null;
 
@@ -60,6 +61,25 @@ export function Dashboard({ db, isExample, pendingCount, hasApi, onGoToReview, o
           <div className="stat-num">{masteredWords}</div>
           <div className="stat-label">已掌握</div>
         </GlassCard>
+      </div>
+
+      {/* Export toolbar — visible immediately on the landing page */}
+      <div className="dashboard-export-bar rv">
+        <ExportMenu
+          doc={{
+            title: "掰it 难句集",
+            author: "掰it",
+            description: `共 ${allRecords.length} 条难句，导出时间 ${new Date().toLocaleString("zh-CN")}`,
+            language: "en",
+            records: allRecords,
+          }}
+          disabled={allRecords.length === 0}
+        />
+        <span className="dashboard-export-hint">
+          {allRecords.length > 0
+            ? `把 ${allRecords.length} 条难句打包成 epub / md / pdf`
+            : "积累难句后可一键打包"}
+        </span>
       </div>
 
       {/* Recent sentences — analyzed or pending fallback */}

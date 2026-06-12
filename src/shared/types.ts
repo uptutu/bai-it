@@ -224,6 +224,7 @@ export type Message =
   | { type: "removeFromVocab"; word: string }
   | { type: "checkVocab"; word: string }
   | { type: "getVocabWords" }
+  | { type: "getExportableRecords" }
   | { type: "exportVocab" }
   | { type: "importVocab"; words: Array<{ word: string; phonetic?: string; pos?: string; definition?: string; example?: string; status?: VocabStatus }> };
 
