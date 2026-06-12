@@ -42,3 +42,9 @@ scripts/dict-batch*.js
 # Edge store logo
 icons/edge-logo-300.png
 .sisyphus
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
