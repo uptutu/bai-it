@@ -10,6 +10,7 @@
 
 import { isEnglish } from "../shared/rule-engine.ts";
 import { scanSplit, toChunkedString } from "../shared/scan-rules.ts";
+import { stripCodeBlocks } from "../shared/strip-code.ts";
 import {
   loadFrequencyList, loadDictionary, loadLemmaMap,
   annotateWords, toNewWordsFormat, isLoaded, lookupDictionary,
@@ -1452,6 +1453,9 @@ function findTextLeafElements(): Element[] {
     // 排除不可能是正文的标签/区域（含 Web App 的 ARIA widget roles）
     if (el.closest('nav, header, footer, aside, [role="navigation"], [role="banner"], [role="complementary"], [role="grid"], [role="gridcell"], [role="row"], [role="rowgroup"], [role="listbox"]')) continue;
 
+    // 跳过 code/pre/kbd/samp/tt 内的元素
+    if (el.closest("code, pre, kbd, samp, tt")) continue;
+
     // 已处理或已被掰it 注入的跳过
     if (processedElements.has(el)) continue;
     if (isEnlearnElement(el)) continue;
@@ -1494,6 +1498,9 @@ function scanPage(): void {
     if (processedElements.has(el)) continue;
     if (isEnlearnElement(el)) continue;
     if (el.closest('nav, header, footer, aside, [role="link"], [role="navigation"], [role="banner"], [role="complementary"], [role="grid"], [role="gridcell"], [role="row"], [role="rowgroup"], [role="listbox"]')) continue;
+
+    // 跳过 code/pre/kbd/samp/tt 内的元素 — 避免被代码块被"掰"开
+    if (el.closest("code, pre, kbd, samp, tt")) continue;
 
     // 跳过包含更具体匹配的父容器
     // 例如 Twitter 上 div[lang="en"] 可能同时匹配 tweetText 和包裹它的父容器
@@ -1538,7 +1545,9 @@ function processTextElement(el: Element, text: string): void {
   }
 
   // 不含链接 → 现有纯文本路径
-  const paragraphs = extractParagraphs(el);
+  // 先去掉 <code>/<pre> 等代码块内部的文本，避免 foo(); // note 被识别成句子、code 内 token 被标生词
+  const strippedText = stripCodeBlocks(text);
+  const paragraphs = extractParagraphs(el).map(p => stripCodeBlocks(p));
   const allChunkedLines: string[] = [];
   let hasAnyChunks = false;
 
@@ -1557,9 +1566,9 @@ function processTextElement(el: Element, text: string): void {
     }
   }
 
-  // 生词标注（不管是否拆分）
+  // 生词标注（不管是否拆分）— 基于已去掉 code 块的文本
   const vocabAnnotations = isLoaded()
-    ? annotateWords(text, knownWords, vocabBookWords)
+    ? annotateWords(strippedText, knownWords, vocabBookWords)
     : [];
 
   // 收集生词列表（只要词）
@@ -1569,7 +1578,7 @@ function processTextElement(el: Element, text: string): void {
     // 有本地拆分结果 → 渲染（带生词标注）
     const chunkedString = allChunkedLines.join("\n");
     const chunkResult: ChunkResult = {
-      original: text,
+      original: strippedText,
       chunked: chunkedString,
       isSimple: false,
       newWords: toNewWordsFormat(vocabAnnotations),
@@ -1581,11 +1590,11 @@ function processTextElement(el: Element, text: string): void {
     }
   } else {
     // 没拆开 → 保留原始 DOM，只在原始元素上挂手动触发
-    addManualTrigger(el, text);
+    addManualTrigger(el, strippedText);
   }
 
   // fire-and-forget 存句到 pending_sentences
-  saveSentenceQuiet(text, false, sentenceNewWords);
+  saveSentenceQuiet(strippedText, false, sentenceNewWords);
 }
 
 function isEnlearnElement(el: Element): boolean {
