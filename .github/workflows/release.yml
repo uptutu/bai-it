@@ -1,0 +1,71 @@
+# 自动发布：推送 v* tag 时跑测试 + 构建 + 打包 + 创建 GitHub Release
+#
+# 流程：
+# 1. checkout + 装 Node 20 + npm ci
+# 2. npm test（vitest）
+# 3. npm run release（build → Chrome/Firefox/Safari zip）
+# 4. softprops/action-gh-release@v2 attach 三个 zip + 从 commit 生成 notes
+#
+# 用法：本地打好 tag 后 `git push origin vX.Y.Z`。
+# 本地手动发布仍可用 `npm run release`（行为一致）。
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # 允许创建 GitHub Release
+
+jobs:
+  build-and-release:
+    name: test · build · package · release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # release notes 需要完整历史
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build + package Chrome / Firefox / Safari
+        run: npm run release
+
+      - name: Verify zip artifacts
+        run: |
+          set -e
+          shopt -s nullglob
+          zips=( dist/bai-it-*.zip )
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "::error::No zip artifacts found in dist/"
+            exit 1
+          fi
+          for z in "${zips[@]}"; do
+            echo "  · $z ($(stat -c%s "$z") bytes)"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/bai-it-chrome-*.zip
+            dist/bai-it-firefox-*.zip
+            dist/bai-it-safari-*.zip
+          fail_on_unmatched_files: true
